@@ -273,7 +273,7 @@ case "$MODE" in
         COMPONENT="$1"; shift
 
         PLAYBOOK_PATH="${PLAYBOOKS_DIR}/${COMPONENT}.yml"
-        [ -e "${PLAYBOOK_PATH}" ] || abort "No Ansible playbook found for ${COMPONENT}."
+        [[ "${COMPONENT}" != "all" && ! -e "${PLAYBOOK_PATH}" ]] && abort "No Ansible playbook found for ${COMPONENT}."
         if [ "${MODE}" == "undeploy" ]; then
             case $COMPONENT in
                 all)
