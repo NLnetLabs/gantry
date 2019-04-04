@@ -76,7 +76,7 @@ Sit back and drink a coffee while the rocket launches!
 
 ## Status
 
-The Routinator and the vr-sros-16.0.$6 router can be deployed and automatically setup such that the router populates its RPKI database using the Routinator.
+The Routinator and the vr-sros-16.0.R6 router can be deployed and automatically setup such that the router populates its RPKI database using the Routinator.
 
 Other routers are a work-in-progress.
 
