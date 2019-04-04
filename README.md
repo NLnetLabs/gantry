@@ -123,7 +123,7 @@ Other commands:
 
 Where ROUTER TYPE can be one of:
        ROUTER TYPE      ROUTER SERIES
-       vr-sros:16.0.R5  Nokia/AlcatelSROS
+       vr-sros:16.0.R6  Nokia/AlcatelSROS
 ```
 
 ## TO DO
