@@ -61,6 +61,7 @@
         tal-dir = "/root/.rpki-cache/tals/"
         log-level = "info"
         log = "stderr"
+        listen-http = ["0.0.0.0:9556"]
 
 - hosts: localhost
   environment:
@@ -95,6 +96,7 @@
             network_mode: host
             ports:
               - "{{ routinator_port }}:{{ routinator_port }}"
+              - 9556:9556
             volumes:
               - /etc/routinator/tals/arin-rfc7730.tal:/root/.rpki-cache/tals/arin.tal
               - /root/.routinator.conf:/root/.routinator.conf
