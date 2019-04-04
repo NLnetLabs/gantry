@@ -273,6 +273,7 @@ case "$MODE" in
         COMPONENT="$1"; shift
 
         PLAYBOOK_PATH="${PLAYBOOKS_DIR}/${COMPONENT}.yml"
+        [ -e "${PLAYBOOK_PATH}" ] || abort "No Ansible playbook found for ${COMPONENT}."
         if [ "${MODE}" == "undeploy" ]; then
             case $COMPONENT in
                 all)
@@ -311,6 +312,7 @@ case "$MODE" in
                 [ "${COMPONENT}" == "all" ] && abort_with_usage
                 check_digitalocean_api_token
                 VM_SIZE=$(get_playbook_specific_var "${PLAYBOOK_PATH}" DROPLET_SIZE)
+                [ -z "${VM_SIZE}" ] && abort "Internal error: No Droplet size specified for ${COMPONENT}."
                 echo "Deploying ${COMPONENT} as Docker Machine ${DOCKER_MACHINE_NAME} on ${VM_SIZE} Droplet in ${DIGITAL_OCEAN_REGION}.."
                 announce-takeoff
                 create-machine ${DOCKER_MACHINE_NAME} ${VM_SIZE} ${DIGITAL_OCEAN_REGION}
