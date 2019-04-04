@@ -80,7 +80,7 @@ The Routinator and the vr-sros-16.0.R6 router can be deployed and automatically 
 
 Other routers are a work-in-progress.
 
-No useful tests exist yet to validate how well or not the Routinator works with the touers.
+No useful tests exist yet to validate how well or not the Routinator works with the touers. As part of creating such tests it would be good to see how much the stock NETCONF protocol can be used or whether origin validation related functions and data are router specific NETCONF extensions (potentially the case for at least the Alcatel/Lucent/Nokia SROS 16.0.R6 VR).
 
 ## Architecture
 
