@@ -76,11 +76,11 @@ Sit back and drink a coffee while the rocket launches!
 
 ## Status
 
-The Routinator and the vr-sros-16.0.$6 router can be deployed and automatically setup such that the router populates its RPKI database using the Routinator.
+The Routinator and the vr-sros-16.0.R6 router can be deployed and automatically setup such that the router populates its RPKI database using the Routinator.
 
 Other routers are a work-in-progress.
 
-No useful tests exist yet to validate how well or not the Routinator works with the touers.
+No useful tests exist yet to validate how well or not the Routinator works with the touers. As part of creating such tests it would be good to see how much the stock NETCONF protocol can be used or whether origin validation related functions and data are router specific NETCONF extensions (potentially the case for at least the Alcatel/Lucent/Nokia SROS 16.0.R6 VR).
 
 ## Architecture
 
@@ -98,7 +98,9 @@ The manner in which different routers with different VM size requirements and po
 
 ## Help
 
-Reach out to us at rpki-team@nlnetlabs.nl, contribute to this project, or play with the CLI:
+For questions, suggestions, and contributions please use GitHub issues and pull requests.
+
+Consulting the Gantry `--help` output is a good way to get a feel for what Gantry can do and how to do it:
 
 ```
 $ ./gantry --help
@@ -123,11 +125,7 @@ Other commands:
 
 Where ROUTER TYPE can be one of:
        ROUTER TYPE      ROUTER SERIES
-       vr-csr:16.09.02  Nokia/AlcatelSROS
-       vr-sros:16.0.R5  Nokia/AlcatelSROS
        vr-sros:16.0.R6  Nokia/AlcatelSROS
-       vr-vmx:8.2R1.9   Nokia/AlcatelSROS
-       vr-xrv9k:0.5.1   Nokia/AlcatelSROS
 ```
 
 ## TO DO
