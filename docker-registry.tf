@@ -42,7 +42,7 @@ resource "digitalocean_ssh_key" "mykey" {
 
 module "registry" {
   source              = "ximon18/docker-registry/digitalocean"
-  version             = "0.0.1-alpha"
+  version             = "0.0.1-beta"
   region              = "${var.registry_do_region}"
   ssh_key_fingerprint = "${digitalocean_ssh_key.mykey.fingerprint}"
   admin_password      = "${var.registry_admin_password}"
