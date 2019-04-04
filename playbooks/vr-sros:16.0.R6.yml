@@ -1,0 +1,177 @@
+# ROUTER_SERIES=Nokia/Alcatel SROS
+# DROPLET_SIZE=s-4vcpu-8gb
+- hosts: localhost
+  tasks:
+  - name: Load configuration file
+    include_vars:
+      file: ../playbook-vars.yml
+
+  - name: Determine IP of Router host
+    command: "docker-machine ip {{router_machine}}"
+    register: results
+  - set_fact:
+      router_ip: "{{ results.stdout }} "
+
+  - name: Inform Ansible of Router host
+    changed_when: False
+    add_host:
+      hostname: "{{ router_ip }}"
+      group: router
+
+  - name: Determine IP of Routinator host
+    changed_when: False
+    command: "docker-machine ip {{ routinator_machine }}"
+    register: results
+  - set_fact:
+      routinator_ip: "{{ results.stdout }}"
+
+  - name: Inform Ansible of Routinator host
+    changed_when: False
+    add_host:
+      hostname: "{{ routinator_ip }}"
+      group: routinator
+
+  - name: Get Docker TLS connection details from Docker Machine
+    changed_when: False
+    shell: "docker-machine env --shell bash {{ router_machine }}"
+    register: results
+  - set_fact:
+      docker_cert_path: "{{ results.stdout | regex_search(cert_path_regexp,'\\1') | first }}"
+      docker_host: "{{ results.stdout | regex_search(host_regexp,'\\1') | first }}"
+    vars:
+      cert_path_regexp: 'DOCKER_CERT_PATH=\"([^"]+)'
+      host_regexp: 'DOCKER_HOST=\"([^"]+)'
+
+  - name: Get Docker SSH connection details from Docker Machine
+    changed_when: False
+    shell: "docker-machine inspect {{ router_machine }}"
+    register: results
+  - set_fact:
+      docker_ssh_key: "{{ results.stdout | from_json | json_query('Driver.SSHKeyPath') }}"
+
+- hosts: router
+  remote_user: root
+  vars:
+    ansible_ssh_private_key_file: "{{ hostvars['localhost']['docker_ssh_key'] }}"
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no"
+  tasks:
+  - name: "ON ROUTER HOST: Install Python for Ansible"
+    raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
+    register: output
+    changed_when: output.stdout != ""
+  
+  - name: "ON ROUTER HOST: Install Socat"
+    raw: test -e /usr/bin/socat || (apt -y update && apt install -y socat)
+  
+  - name: "ON ROUTER HOST: Forward port {{ router_port_internal }} to port {{ router_port_external }}"
+    shell: "cd /tmp; nohup socat TCP-LISTEN:{{ router_port_external }},fork TCP:127.0.0.1:{{ router_port_internal }}"
+    async: 2592000 # keep the background process running for at most a month!
+    poll: 0
+
+- hosts: localhost
+  environment:
+    DOCKER_CERT_PATH: "{{ docker_cert_path }}"
+    DOCKER_HOST: "{{ docker_host }}"
+    DOCKER_MACHINE_NAME: "{{ router_machine }}"
+    DOCKER_TLS_VERIFY: 1
+  tasks:
+  - name: "ON LOCALHOST: Private Docker registry login ({{ registry_user }}@{{ registry_fqdn }})"
+    docker_login:
+      registry: "{{ registry_fqdn }}"
+      username: "{{ registry_user }}"
+      password: "{{ registry_pass }}"
+
+  - name: "ON LOCALHOST: Run the router using docker-compose up"
+    environment: # needed by the docker-compose file
+      DOCKER_REGISTRY_FQDN: "{{ registry_fqdn }}"
+      ROUTINATOR_IP: "{{ routinator_ip }}"
+      ROUTINATOR_PORT: "{{ routinator_port }}"
+      ROUTER_USER: "{{ router_user }}"
+      ROUTER_PASS: "{{ router_pass }}"
+    docker_service:
+      project_src: .
+      state: present
+      services: "{{ router_service }}"
+
+  - name: "ON LOCALHOST: Private Docker registry logout"
+    docker_login:
+      registry: "{{ registry_fqdn }}"
+      state: absent          # logout
+
+  - name: "ON LOCALHOST: Wait for router Docker container to become healthy"
+    shell: docker ps
+    register: results
+    until: results.stdout_lines[1] | regex_search('\(healthy\)')
+    delay: 10
+    retries: "{{ router_healthcheck_retries }}"
+
+# Note: Run with ANSIBLE_PARAMIKO_HOST_KEY_AUTO_ADD=True to avoid Paramiko SSH error authenticity of host can't be
+# established. It seems to only be configurable from environment variables set BEFORE Ansible runs, or in ansible.cfg,
+# and Paramiko SSH seems to read known_hosts files BEFORE the Ansible playbook is executed, so we can't write logic in
+# this playbook to change the Paramiko behaviour or to supply the missing host key.
+- hosts: router
+  connection: local
+  vars:
+    router_ip: "{{ hostvars['localhost']['router_ip'] }}"
+    routinator_ip: "{{ hostvars['localhost']['routinator_ip'] }}"
+  module_defaults:
+    sros_config:
+      provider:
+        host: "{{ router_ip }}"
+        username: "{{ router_user }}"
+        password: "{{ router_pass }}"
+        port: "{{ router_port_external }}"
+  tasks:
+  - name: "ON ROUTER HOST: Install Python for Ansible"
+    raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
+    register: output
+    changed_when: output.stdout != ""
+
+  - name: "ON ROUTER {{ router_ip }}: ENABLE PORT 1/1/1 (user: {{ router_user }}, pass: {{ router_pass }}, port: {{ router_port_external }}"
+    sros_config:
+      lines: "configure port 1/1/1 no shutdown"
+  
+  - name: "ON ROUTER {{ router_ip }}: ENABLE ROUTER OUTBOUND CONNECTIVITY VIA PORT 1/1/1"
+    sros_config:
+      lines:
+        - "configure router interface \"out\" port 1/1/1"
+        - "configure router interface \"out\" address 192.168.76.9/24"
+        - "configure router interface \"out\" ip-helper-address 192.168.76.2"
+        - "configure router \"Base\" static-route-entry 0.0.0.0/0 next-hop 192.168.76.2 no shutdown"
+
+  - name: "ON ROUTER {{ router_ip }}: ENABLE RPKI ORIGIN VALIDATION VIA ROUTINATOR @ {{ routinator_ip }}:{{ routinator_port }}"
+    sros_config:
+      lines:
+        - "configure router \"Base\" origin-validation rpki-session {{ routinator_ip }} port {{ routinator_port }}"
+        - "configure router \"Base\" origin-validation rpki-session {{ routinator_ip }} no shutdown"
+
+- hosts: router
+  connection: local
+  vars:
+    router_ip: "{{ hostvars['localhost']['router_ip'] }}"
+    provider:
+      host: "{{ router_ip }}"
+      username: "{{ router_user }}"
+      password: "{{ router_pass }}"
+      port: "{{ router_port_external }}"
+  tasks:
+  - name: "ON ROUTER {{ router_ip }}: WAIT FOR CONNECTION ESTABLISHED TO THE ROUTINATOR"
+    tags: checks
+    sros_command:
+      provider: "{{ provider }}"
+      commands: show router origin-validation rpki-session
+      wait_for: result[0] contains established
+    register: result
+
+  - debug: var=result.stdout_lines
+    tags: checks
+
+  - name: "ON ROUTER {{ router_ip }}: SHOW RPKI DATABASE"
+    tags: checks
+    sros_command:
+      provider: "{{ provider }}"
+      commands: show router origin-validation database summary
+    register: result
+
+  - debug: var=result.stdout_lines
+    tags: checks

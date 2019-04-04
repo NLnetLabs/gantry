@@ -1,0 +1,5 @@
+*.tfstate*
+.terraform/**
+*.terraform*
+*.tfvars
+gantry.cfg

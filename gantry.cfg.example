@@ -1,0 +1,6 @@
+DIGITALOCEAN_TOKEN=<your Digital Ocean API token>
+ROUTER_USER=<some username>
+ROUTER_PASS=<some password>
+DOCKER_REGISTRY_FQDN=<some a.b.c.domain>
+DOCKER_REGISTRY_USER=<some user>
+DOCKER_REGISTRY_PASS=<some password>

@@ -1,0 +1,21 @@
+diff --git sros/docker/launch.py sros/docker/launch.py
+index 30e5047..9bcffe0 100755
+--- sros/docker/launch.py
++++ sros/docker/launch.py
+@@ -169,6 +169,16 @@ class SROS_integrated(SROS_vm):
+ 
+ 
+ 
++    def gen_nics(self):
++        """ Generate qemu args to create a port device capable of connecting outside
++        """
++        res = []
++        res.extend(["-device", "e1000,netdev=port1,mac=%s" % vrnetlab.gen_mac(2)])
++        res.extend(["-netdev", "user,id=port1,net=192.168.76.0/24,dhcpstart=192.168.76.9"])
++        return res
++
++
++
+     def bootstrap_config(self):
+         """ Do the actual bootstrap config
+         """

@@ -1,0 +1,13 @@
+registry_fqdn: "{{ lookup('env', 'DOCKER_REGISTRY_FQDN') }}"
+registry_user: "{{ lookup('env', 'DOCKER_REGISTRY_USER') }}"
+registry_pass: "{{ lookup('env', 'DOCKER_REGISTRY_PASS') }}"
+routinator_machine: routinator
+routinator_service: routinator
+routinator_port: 3323
+router_port_external: 1818
+router_port_internal: 2022
+router_user: "{{ lookup('env', 'ROUTER_USER') }}"
+router_pass: "{{ lookup('env', 'ROUTER_PASS') }}"
+router_healthcheck_retries: 60
+router_machine: "{{ lookup('env', 'DOCKER_MACHINE_NAME') }}"
+router_service: "{{ lookup('env', 'DOCKER_SERVICE') }}"

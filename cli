@@ -1,0 +1,495 @@
+#!/bin/bash
+set -e -u
+
+# Set default values for unset variables
+: ${DEBUG=0}
+: ${GANTRY_INSIDE_DOCKER=0}
+: ${DIGITALOCEAN_TOKEN=}
+
+# Echo commands in debug mode
+[ "$DEBUG" == 1 ] && set -x
+
+# Without this the Ansible Network CLI module will fail to connect to the router due to unknown SSH host key
+export ANSIBLE_PARAMIKO_HOST_KEY_AUTO_ADD=True
+
+# The hosts we control with Ansible are created dynamically so we don't use a pre-created host inventory and the
+# default warning about an empty host inventory is just annoying so disable it.
+export ANSIBLE_LOCALHOST_WARNING=False
+
+# Disable automated fact gathering as the host on which Ansible runs is not interesting to us, we're interested
+# in what happens inside Docker containers on the host, and having to say gather_facts: false for every - hosts:
+# section in the Ansible templates is really annoying, as is waiting for fact gathering that isn't needed.
+export ANSIBLE_GATHERING=explicit
+
+SELF="$0"
+BASEDIR=$(dirname $0)
+DOCKER_BIND_DIR="/tmp/gantry"
+PLAYBOOKS_DIR="${BASEDIR}/playbooks"
+PLAYBOOK_VARS="${BASEDIR}/playbook-vars.yml"
+DIGITAL_OCEAN_REGION="ams3"
+DIGITAL_OCEAN_BASE_OS_SLUG="ubuntu-18-04-x64"
+NOT_DEPLOYED="-"
+
+abort() {
+    echo >&2 "ERROR: $*"
+    exit 1
+}
+
+abort_with_usage() {
+    show_usage
+    exit 2
+}
+
+check_dependencies() {
+    for DEP in $*; do
+        which $DEP >/dev/null || abort "ERROR: Please install ${DEP}. Aborting."
+    done
+}
+
+check_is_docker_distribution() {
+    [ "${GANTRY_INSIDE_DOCKER}" -eq 1 ]
+}
+
+check_digitalocean_api_token() {
+    [ -z "${DIGITALOCEAN_TOKEN}" ] && abort "You must supply environment variable DIGITALOCEAN_TOKEN."
+    return 0
+}
+
+check_proceed() {
+    read -p "Do you wish to proceed? [y/N] " CHOICE
+    test 'y' == "${CHOICE}"
+}
+
+create-machine() {
+    MACHINE_NAME="$1"
+    MACHINE_SIZE="$2"
+    REGION="$3"
+
+    docker-machine ip ${MACHINE_NAME} &>/dev/null || docker-machine create \
+        --driver digitalocean \
+        --digitalocean-access-token ${DIGITALOCEAN_TOKEN} \
+        --digitalocean-region ${REGION} \
+        --digitalocean-image ${DIGITAL_OCEAN_BASE_OS_SLUG} \
+        --digitalocean-size ${MACHINE_SIZE} \
+        ${MACHINE_NAME}
+}
+
+destroy_machine() {
+    MACHINE_NAME="$1"
+    FORCE=
+    [[ $# -ge 2 && "$2" == "--force" ]] && FORCE="--force"
+    docker-machine rm ${FORCE} ${MACHINE_NAME}
+}
+
+run_playbook() {
+    PLAYBOOK_PATH="$1"; shift
+    ansible-playbook $* -e "@playbook-vars.yml" ${PLAYBOOK_PATH}
+}
+
+export_component_vars() {
+    COMPONENT="$1"
+    if [ "${COMPONENT}" == "routinator" ]; then
+        export DOCKER_SERVICE="routinator"
+        export DOCKER_TAG="latest"
+        export DOCKER_MACHINE_NAME="routinator"
+    else
+        export COMPONENT_NAME="${COMPONENT%:*}"
+        export COMPONENT_VERSION="${COMPONENT##*:}"
+        export DOCKER_SERVICE="${COMPONENT_NAME}"
+        export DOCKER_TAG="${COMPONENT_VERSION}"
+        export DOCKER_MACHINE_NAME="${COMPONENT_NAME}-${COMPONENT_VERSION}"
+    fi
+}
+
+get_machine_property() {
+    MACHINE_NAME="$1"
+    PROPERTY="$2"
+    docker-machine ${PROPERTY} ${MACHINE_NAME} 2>/dev/null || echo "${NOT_DEPLOYED}"
+}
+
+# outputs lines in the form: <COMPONENT>|<STATUS>|<IP ADDRESS>|<VM SIZE>
+# if $1 is --component then any playbook name matching regex $2 is excluded from the output
+# if $1 is --status then only machines with a status matching regex $2 are included in the output
+# if $3 is --not then the meaning of any filter is inverted
+get_deployment_report() {
+    COMPONENT_REGEX=".+"
+    STATUS_REGEX=".+"
+    COMPONENT_NOT=
+    STATUS_NOT=
+    if [[ $# -eq 3 && "$3" == "--not" ]]; then
+        NOT=v
+        # [ "$1" == "--component" ] && STATUS_REGEX="^$"
+        # [ "$1" == "--status" ] && COMPONENT_REGEX="^$"
+    fi
+    [[ $# -ge 2 && "$1" == "--component" ]] && COMPONENT_NOT="$NOT" && COMPONENT_REGEX="$2"
+    [[ $# -ge 2 && "$1" == "--status" ]] && STATUS_NOT="$NOT" && STATUS_REGEX="$2"
+
+    for PLAYBOOK_PATH in $(ls ${PLAYBOOKS_DIR}/*.yml | grep -E${COMPONENT_NOT} ${COMPONENT_REGEX}); do
+        COMPONENT=$(basename ${PLAYBOOK_PATH} | sed -e 's/\.yml//')
+        export_component_vars "${COMPONENT}"
+        STATUS="$(get_machine_property ${DOCKER_MACHINE_NAME} status | grep -E${STATUS_NOT} ${STATUS_REGEX})"
+        if [ ! -z "${STATUS}" ]; then
+            IP="$(get_machine_property ${DOCKER_MACHINE_NAME} ip)"
+            VM_SIZE=$(get_playbook_specific_var "${PLAYBOOK_PATH}" DROPLET_SIZE)
+            echo "${COMPONENT}|${STATUS}|${IP}|${VM_SIZE}"
+        fi
+    done
+}
+
+get_playbook_global_var() {
+    VAR_TO_GET="$1"
+    grep -E "^${VAR_TO_GET}: .+" ${PLAYBOOK_VARS} | cut -d ':' -f 2 | tr -d '[:space:]'
+}
+
+get_playbook_specific_var() {
+    PLAYBOOK="$1"
+    VAR_TO_GET="$2"
+    grep -E "^# ${VAR_TO_GET}=" ${PLAYBOOK} | cut -d '=' -f 2 | tr -d '[:space:]'
+}
+
+print_status() {
+    INDENT=""
+    FORMAT="%s%-16s %-16s %-16s %s\n"
+    printf "${FORMAT}" "${INDENT}" "NAME" "STATE" "IP ADDRESS" "VM SIZE"
+    OLDIFS=$IFS; IFS=$'\n'
+    for REPORT_LINE in $(get_deployment_report); do
+        COMPONENT="$(echo ${REPORT_LINE} | cut -d '|' -f 1)"
+        STATUS="$(echo ${REPORT_LINE} | cut -d '|' -f 2)"
+        IP="$(echo ${REPORT_LINE} | cut -d '|' -f 3)"
+        VM_SIZE="$(echo ${REPORT_LINE} | cut -d '|' -f 4)"
+        printf "${FORMAT}" "${INDENT}" "${COMPONENT}" "${STATUS}" "${IP}" "${VM_SIZE}"
+    done
+    IFS=${OLDIFS}
+}
+
+undeploy_all() {
+    OLDIFS=$IFS; IFS=$'\n'
+    UNDEPLOY_COMPONENTS=""
+    for REPORT_LINE in $(get_deployment_report); do
+        COMPONENT="$(echo ${REPORT_LINE} | cut -d '|' -f 1)"
+        STATUS="$(echo ${REPORT_LINE} | cut -d '|' -f 2)"
+        [ "${STATUS}" != "${NOT_DEPLOYED}" ] && UNDEPLOY_COMPONENTS="${UNDEPLOY_COMPONENTS} ${COMPONENT}"
+    done
+    IFS=${OLDIFS}
+
+    NUM_COMPONENTS_TO_UNDEPLOY=$(echo ${UNDEPLOY_COMPONENTS} | wc -w)
+    echo "You are about to undeploy ${NUM_COMPONENTS_TO_UNDEPLOY} components"
+    check_proceed || return
+
+    for COMPONENT in ${UNDEPLOY_COMPONENTS}; do
+        ${SELF} undeploy ${COMPONENT} --force
+    done
+}
+
+announce-takeoff() {
+    cat >&2 <<'EOF'
+
+                           ``-.-:::::/---``                           
+                     ``-:/++++////////+oosyyo+:.`                     
+                  .-///:-.``             ``.:+shhy/.                  
+               `-:::.`                         `-+sdy+.               
+             .::-.`               ``              `./ydy-             
+           .---`                `-//-`               `:ymy-           
+         `--.`                 `:////:`                `:ymy.         
+        .--`                  .:////+++.                 `+md:        
+       .-.`                 `-://////+o+-`                 -hms       
+      -..                 ``-:///////+sso:``                .hNs`     
+     ...               ````-::///////+syso:````              .hNo     
+    .-.`             `````-:::///////+shhy+-`````             -mN:    
+    -.`             `````-::::///////+shdhs/-`````             oNd`   
+   .-.             `````.:::::///////+shmmho/-`````            `mN/   
+   -.`             `````-::::///+osyyhhdmmms+/.````             yNs   
+   `.`            `````--:::/ossssyyyyydmNmho/:`````            oNd   
+   ..`            ````.-:::+yssosyyhhhhhhmNds//-````            +Nd   
+   `.`            ````--:::yyo+/+osyhmNmddNmy+//.```            oNd   
+   -.`             ``.--:::yy+///+oshNMNddNmho//:``             yNs   
+   .-.             ``.--:::+hsooooosyhdhhmNNdo///.`            `mN/   
+    -.`             `.--::::+ssssssssyyhdmNNds///-`            oNd`   
+    .-.`           `..--::::://+ossyyhhyydNNmy+///`           -mN:    
+     ...           `.--:::::://///++++//ohNNmy+///.          .hNo     
+      -..          :syy+:::shhh+///hhhy/ohNMMNy///.         .hNs`     
+       .-.`        /yhd+:::dMMMo///MMMm/+ymMMMm+++:        -hms       
+        .--`       .-:/yhhhysyyhhhhhhhhhdmNNNmhmNNd`     `+md:        
+         `--.`     ..--dmNN+:/+NMMM///+MMMMNNdyMMNm`   `:ymy.         
+           .---`  `osyy++oshhhhhyhhhhhhhhdmMMNmso+/  `:ymy-           
+             .::-.`oyhd:::/NMMM+///MMMN++sdMMMN+///./ydy-             
+               `-:::::/yhhhyyyyhhhhhhyhhdmNNNNdmmmddy+.               
+                  .-///oyhm+://NMMM///+MMMNmmdhdhy/.                  
+                     ``-:/+++++yhhdoooshhhyyo+:.`                     
+                           ``-.-:::::::--``                           
+
+EOF
+}
+
+show_usage() {
+    BASENAME="$(basename $0)"
+    check_is_docker_distribution && BASENAME=gantry
+    cat >&2 <<EOF
+Gantry: "a structure built on a rocket launch pad to facilitate assembly and servicing"
+
+NLnet Labs Gantry is a tool for deploying and testing network routers in the cloud, built to support the NLnet Labs Routinator project.
+
+Usage: ${BASENAME} help|--help
+
+Router management commands:
+       ${BASENAME} check    routinator|<ROUTER TYPE>|all 
+       ${BASENAME} deploy   routinator|<ROUTER TYPE> [--region <REGION:default=${DIGITAL_OCEAN_REGION}>] 
+       ${BASENAME} docker   routinator|<ROUTER TYPE> ..docker cli command..
+       ${BASENAME} exec     routinator ..routinator cli command..
+       ${BASENAME} logs     routinator|<ROUTER TYPE> [--follow|--detailed]
+       ${BASENAME} ssh      routinator|<ROUTER TYPE> [--host]
+       ${BASENAME} status
+       ${BASENAME} undeploy routinator|<ROUTER TYPE>|all [--force]
+
+Other commands:
+       ${BASENAME} registry ls|deploy|publish
+
+Where ROUTER TYPE can be one of:
+EOF
+
+    INDENT="       "
+    FORMAT="%s%-16s %s\n"
+    printf "${FORMAT}" "${INDENT}" "ROUTER TYPE" "ROUTER SERIES"
+    for REPORT_LINE in $(get_deployment_report --component routinator --not); do
+        ROUTER="$(echo ${REPORT_LINE} | cut -d '|' -f 1)"
+        ROUTER_SERIES=$(get_playbook_specific_var "${PLAYBOOKS_DIR}/${ROUTER}.yml" ROUTER_SERIES)
+        if [ ! -z "${ROUTER_SERIES}" ]; then
+            printf "${FORMAT}" "${INDENT}" "${ROUTER}" "${ROUTER_SERIES}"
+        fi
+    done
+}
+
+check_dependencies \
+    docker-machine \
+    ansible-playbook
+
+[ $# -lt 1 ] && abort_with_usage
+
+MODE="$1"; shift
+case "$MODE" in
+    check|deploy|undeploy)
+        [ $# -lt 1 ] && abort_with_usage
+        COMPONENT="$1"; shift
+
+        PLAYBOOK_PATH="${PLAYBOOKS_DIR}/${COMPONENT}.yml"
+        if [ "${MODE}" == "undeploy" ]; then
+            case $COMPONENT in
+                all)
+                    ${SELF} status
+                    undeploy_all
+                    exit 0
+                    ;;
+
+                routinator)
+                    ;;
+
+                *)
+                    [ -e "${PLAYBOOK_PATH}" ] || abort_with_usage
+                    ;;
+            esac
+        fi
+
+        if [[ $# -ge 2 && "$1" == "--region" ]]; then
+            [ "${MODE}" == "deploy" ] || abort_with_usage
+            DIGITAL_OCEAN_REGION = "$2"; shift 2
+        fi
+
+        [ "${COMPONENT}" != "all" ] && export_component_vars "${COMPONENT}"
+        case ${MODE} in
+            check)
+                if [ "${COMPONENT}" == "all" ]; then
+                    REPORT=$(get_deployment_report --status ${NOT_DEPLOYED} --not)
+                    [ -z "${REPORT}" ] && abort "Cannot run checks as there are no deployed components to check."
+                    run_playbook ${PLAYBOOKS_DIR}/* --tags=checks $*
+                else
+                    export_component_vars "${COMPONENT}"
+                    run_playbook ${PLAYBOOK_PATH} --tags=checks $*
+                fi
+                ;;
+            deploy)
+                [ "${COMPONENT}" == "all" ] && abort_with_usage
+                check_digitalocean_api_token
+                VM_SIZE=$(get_playbook_specific_var "${PLAYBOOK_PATH}" DROPLET_SIZE)
+                echo "Deploying ${COMPONENT} as Docker Machine ${DOCKER_MACHINE_NAME} on ${VM_SIZE} Droplet in ${DIGITAL_OCEAN_REGION}.."
+                announce-takeoff
+                create-machine ${DOCKER_MACHINE_NAME} ${VM_SIZE} ${DIGITAL_OCEAN_REGION}
+                run_playbook ${PLAYBOOK_PATH} $*
+                ;;
+            undeploy)
+                echo "Destroying ${COMPONENT} host Docker Machine ${DOCKER_MACHINE_NAME}.."
+                destroy_machine ${DOCKER_MACHINE_NAME} $*
+                ;;
+        esac
+        ;;
+
+    status)
+        print_status
+        ;;
+
+    ssh|docker|logs|exec)
+        [ $# -lt 1 ] && abort_with_usage
+        COMPONENT="$1"; shift
+        export_component_vars "${COMPONENT}"
+        IP=$(docker-machine ip ${DOCKER_MACHINE_NAME} 2>/dev/null || abort "${COMPONENT} is not deployed")
+
+        SSH_TO_HOST=0
+        [[ $# -ge 1 && "$1" == "--host" ]] && SSH_TO_HOST=1 && shift
+
+        if [ "${MODE}" == "docker" ]; then
+            docker-machine ssh ${DOCKER_MACHINE_NAME} docker $*
+        elif [ "${MODE}" == "exec" ]; then
+            [ "${COMPONENT}" == "routinator" ] || abort "Executing commands is not supported yet for ${COMPONENT}."
+            [ $# -lt 1 ] && abort_with_usage
+            docker-machine ssh ${DOCKER_MACHINE_NAME} docker exec routinator routinator $*
+        elif [ "${MODE}" == "logs" ]; then
+            FOLLOW=""
+            DETAILED=0
+            while [ $# -ge 1 ]; do
+                ARG="$1"; shift
+                case $ARG in
+                    --follow)
+                        FOLLOW="--follow"
+                        ;;
+                    --detailed)
+                        DETAILED=1
+                        ;;
+                esac
+            done
+
+            if [ "${DETAILED}" -eq 0 ]; then
+                export_component_vars "${COMPONENT}"
+                docker-machine ssh ${DOCKER_MACHINE_NAME} docker logs ${FOLLOW} ${DOCKER_SERVICE}
+            else
+                [ "${COMPONENT}" == "routinator" ] || abort "Detailed logs are not supported yet for ${COMPONENT}."
+                ${SELF} exec routinator -v vrps
+            fi
+        elif [[ "${COMPONENT}" == "routinator" || "${SSH_TO_HOST}" -eq 1 ]]; then
+            echo "You are about to be connected to the host Droplet on which the ${COMPONENT} Docker container runs."
+            check_proceed && echo && docker-machine ssh ${DOCKER_MACHINE_NAME}
+        else
+            SSH_PORT=$(get_playbook_global_var router_port_external)
+            echo "You are about to be connected to the proprietary interface of router ${COMPONENT}."
+            echo "When prompted enter password: ${ROUTER_PASS}"
+            check_proceed && echo && ssh -l ${ROUTER_USER} -p ${SSH_PORT} ${IP}
+        fi
+        ;;
+
+    registry)
+        [ $# -lt 1 ] && abort_with_usage
+        case $1 in
+            ls)
+                reg ls -u ${DOCKER_REGISTRY_USER} -p ${DOCKER_REGISTRY_PASS} ${DOCKER_REGISTRY_FQDN}
+                ;;
+
+            deploy)
+                cd ${BASEDIR}
+
+                echo "You are about to deploy a private Docker registry on a Digital Ocean droplet."
+                echo "Deployment requires a Digital Ocean account and an existing DNS domain managed by Digital Ocean".
+                echo "You are strongly advised to read the documentation about the Terraform module that will be"
+                echo "used to deploy the registry:"
+                echo
+                echo "    https://registry.terraform.io/modules/ximon18/docker-registry/digitalocean/0.0.1-alpha"
+                echo
+                echo "During deployment you will be asked some questions. Please consult the link above for help."
+
+                echo
+                echo "The following properties of your registry are already defined:"
+                echo
+                echo "    registry_fqdn: ${DOCKER_REGISTRY_FQDN}"
+                echo "    registry user: admin"
+                echo "    registry pass: ${DOCKER_REGISTRY_PASS}"
+                echo
+                PARENT_DOMAIN=$(echo ${DOCKER_REGISTRY_FQDN} | cut -d '.' -f 2-)
+                echo "Deployment will FAIL if parent domain ${PARENT_DOMAIN} is not already delegated to your Digital Ocean account."
+                check_proceed || abort "User chose to abort."
+
+                echo
+                echo "An SSH key pair will be created for access to the private Docker registry Droplet."
+                check_proceed || abort "User chose to abort."
+
+                if [[ ! -e ~/.ssh/id_rsa || ! -e ~/.ssh/id_rsa.pub ]]; then
+                    echo "Creating SSH key pair.."
+                    ssh-keygen -f ~/.ssh/id_rsa -t rsa -N '' >/dev/null
+                fi
+                echo "Private Docker registry SSH key details:"
+                echo -n "Public key: "; cat ~/.ssh/id_rsa.pub
+                echo -n "Private key: "; cat ~/.ssh/id_rsa
+                echo
+                echo "Please copy these keys to a safe location."
+                echo "If you ever need to SSH into the private Docker registry Droplet you will need them!"
+
+                echo "Are you ready to begin the deployment process?"
+                check_proceed || abort "User chose to abort."
+
+                export TF_VAR_registry_fqdn="${DOCKER_REGISTRY_FQDN}"
+                export TF_VAR_registry_admin_password="${DOCKER_REGISTRY_PASS}"
+                terraform init && terraform apply
+
+                echo "Done."
+                ;;
+
+            publish)
+                echo "Publishing builds a vrnetlab router image and publishes it to your private Docker registry."
+                echo "The router images and licenses must be supplied by you."
+                check_proceed || abort "User chose to abort."
+
+                echo
+                echo "Which of the following router image types do you want to publish?"
+                find ${BASEDIR}/vrnetlab/ -maxdepth 1 -type d -exec test -d '{}/docker' \; -print | grep -Eo '[^/]+$' | sort | sed -e 's/^/    /'
+                read -p "Router type, e.g. sros: " PUBLISH_ROUTER_TYPE
+                [[ ! -z ${PUBLISH_ROUTER_TYPE} && -d ${BASEDIR}/vrnetlab/${PUBLISH_ROUTER_TYPE} ]] || abort "Unknown router type ${PUBLISH_ROUTER_TYPE}"
+
+                echo
+                echo "Please copy or sym link your .qcow2 router image, and optionally a .qcow2.license file, into:"
+                echo "    ${GANTRY_BIND_MOUNT_HOST_DIR}"
+
+                echo
+                echo "Please read CAREFULLY the instructions that will be printed next on your screen."
+                echo "If you do not name the copied/linked files correctly the build will FAIL."
+                check_proceed || abort "User chose to abort."
+
+                echo
+                cat ${BASEDIR}/vrnetlab/${PUBLISH_ROUTER_TYPE}/README.md
+                check_proceed || abort "User chose to abort."
+
+                echo
+                pushd ${BASEDIR}/vrnetlab/${PUBLISH_ROUTER_TYPE}
+                find ${DOCKER_BIND_DIR} -name '*.qcow2' -exec ln -s {} \;
+                find ${DOCKER_BIND_DIR} -name '*.qcow2.license' -exec ln -s {} \;
+                ls -la
+                make docker-image
+                popd
+
+                echo
+                BUILT_IMAGE=$(docker image ls --format "{{.Repository}}:{{.Tag}}" | head -n 1)
+                [ -z ${BUILT_IMAGE} ] && abort "The image build process failed."
+
+                echo "The image build has finished. Does the following identify the image that was built?"
+                echo "    ${BUILT_IMAGE}"
+                check_proceed || abort "User chose to abort"
+
+                docker tag ${BUILT_IMAGE} ${DOCKER_REGISTRY_FQDN}/${BUILT_IMAGE}
+                docker login -u ${DOCKER_REGISTRY_USER} -p ${DOCKER_REGISTRY_PASS} ${DOCKER_REGISTRY_FQDN}
+                docker push ${DOCKER_REGISTRY_FQDN}/${BUILT_IMAGE}
+                docker logout
+
+                echo "Done."
+                ;;
+
+            *)
+                abort_with_usage
+                ;;
+        esac
+        ;;
+
+    help|--help)
+        show_usage
+        ;;
+
+    *)
+        abort_with_usage
+        ;;
+esac
+
+exit 0
