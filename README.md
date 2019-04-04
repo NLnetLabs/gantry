@@ -98,7 +98,9 @@ The manner in which different routers with different VM size requirements and po
 
 ## Help
 
-Reach out to us at rpki-team@nlnetlabs.nl, contribute to this project, or play with the CLI:
+For questions, suggestions, and contributions please use GitHub issues and pull requests.
+
+Consulting the Gantry `--help` output is a good way to get a feel for what Gantry can do and how to do it:
 
 ```
 $ ./gantry --help
