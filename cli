@@ -236,6 +236,7 @@ Router management commands:
        ${BASENAME} deploy   routinator|<ROUTER TYPE> [--region <REGION:default=${DIGITAL_OCEAN_REGION}>] 
        ${BASENAME} docker   routinator|<ROUTER TYPE> ..docker cli command..
        ${BASENAME} exec     routinator ..routinator cli command..
+       ${BASENAME} ip       routinator|<ROUTER TYPE>
        ${BASENAME} logs     routinator|<ROUTER TYPE> [--follow|--detailed]
        ${BASENAME} ssh      routinator|<ROUTER TYPE> [--host]
        ${BASENAME} status
@@ -326,7 +327,7 @@ case "$MODE" in
         print_status
         ;;
 
-    ssh|docker|logs|exec)
+    ssh|docker|logs|exec|ip)
         [ $# -lt 1 ] && abort_with_usage
         COMPONENT="$1"; shift
         export_component_vars "${COMPONENT}"
@@ -335,7 +336,9 @@ case "$MODE" in
         SSH_TO_HOST=0
         [[ $# -ge 1 && "$1" == "--host" ]] && SSH_TO_HOST=1 && shift
 
-        if [ "${MODE}" == "docker" ]; then
+        if [ "${MODE}" == "ip" ]; then
+            echo "${IP}"
+        elif [ "${MODE}" == "docker" ]; then
             docker-machine ssh ${DOCKER_MACHINE_NAME} docker $*
         elif [ "${MODE}" == "exec" ]; then
             [ "${COMPONENT}" == "routinator" ] || abort "Executing commands is not supported yet for ${COMPONENT}."
