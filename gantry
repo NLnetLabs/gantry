@@ -3,7 +3,7 @@ GANTRY_BIND_MOUNT_HOST_DIR=/tmp/gantry
 COMMON_ARGS="-it -e DEBUG -e ANSIBLE_DEBUG -e GANTRY_BIND_MOUNT_HOST_DIR=${GANTRY_BIND_MOUNT_HOST_DIR}"
 MANUAL_MODE=0
 
-[[ $# -eq 1 && "$1" == "manual" ]] && MANUAL_MODE=1
+[[ $# -eq 1 && "$1" == "manual" ]] && MANUAL_MODE=1 && shift
 
 docker container inspect gantry &>/dev/null
 if [ $? -eq 0 ]; then
