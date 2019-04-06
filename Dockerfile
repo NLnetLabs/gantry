@@ -59,9 +59,10 @@ RUN REG_SHA256="0470b6707ac68fa89d0cd92c83df5932c9822df7176fcf02d131d75f74a36a19
 
 # Install our tools
 COPY . /opt/nlnetlabs/gantry
-WORKDIR /opt/nlnetlabs/gantry/vrnetlab
+RUN ln -s /usr/bin/python3 /usr/bin/python
 
 # Patch vrnetlab
+WORKDIR /opt/nlnetlabs/gantry/vrnetlab
 RUN patch -p0 < /opt/nlnetlabs/gantry/vrnetlab.patch
 
 # Final touches

@@ -122,11 +122,6 @@
         password: "{{ router_pass }}"
         port: "{{ router_port_external }}"
   tasks:
-  - name: "ON ROUTER HOST: Install Python for Ansible"
-    raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
-    register: output
-    changed_when: output.stdout != ""
-
   - name: "ON ROUTER {{ router_ip }}: ENABLE PORT 1/1/1 (user: {{ router_user }}, pass: {{ router_pass }}, port: {{ router_port_external }}"
     sros_config:
       lines: "configure port 1/1/1 no shutdown"
