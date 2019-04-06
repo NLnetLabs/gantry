@@ -69,7 +69,4 @@ RUN patch -p0 < /opt/nlnetlabs/gantry/vrnetlab.patch
 WORKDIR /opt/nlnetlabs/gantry
 VOLUME /root/.docker/machine
 ENV GANTRY_INSIDE_DOCKER=1
-ENV ROUTER_USER=nlnetlabs
-ENV ROUTER_PASS=***REMOVED***
-RUN mkdir -p /etc/ansible && touch /etc/ansible/hosts
 ENTRYPOINT ["/bin/bash", "/opt/nlnetlabs/gantry/cli"]
