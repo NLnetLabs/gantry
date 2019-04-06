@@ -29,6 +29,7 @@ PLAYBOOK_VARS="${BASEDIR}/playbook-vars.yml"
 DIGITAL_OCEAN_REGION="ams3"
 DIGITAL_OCEAN_BASE_OS_SLUG="ubuntu-18-04-x64"
 NOT_DEPLOYED="-"
+INVENTORY_PLUGIN_CONFIG_FILE="${BASEDIR}/docker_machine.yml"
 
 abort() {
     echo >&2 "ERROR: $*"
@@ -64,6 +65,11 @@ create-machine() {
     MACHINE_NAME="$1"
     MACHINE_SIZE="$2"
     REGION="$3"
+    TAGS="$4"
+
+    # Based on the rules for tag names stated here: https://developers.digitalocean.com/documentation/v2/#tags
+    # Commas are not in the allowed set but are used by Docker Machine to separate tags from one another.
+    TAGS="$(echo $TAGS | tr '.' '-' | tr -c -d 'a-zA-Z0-9:_,-')"
 
     docker-machine ip ${MACHINE_NAME} &>/dev/null || docker-machine create \
         --driver digitalocean \
@@ -71,6 +77,7 @@ create-machine() {
         --digitalocean-region ${REGION} \
         --digitalocean-image ${DIGITAL_OCEAN_BASE_OS_SLUG} \
         --digitalocean-size ${MACHINE_SIZE} \
+        --digitalocean-tags ${TAGS} \
         ${MACHINE_NAME}
 }
 
@@ -82,16 +89,24 @@ destroy_machine() {
 }
 
 run_playbook() {
-    PLAYBOOK_PATH="$1"; shift
-    ansible-playbook $* -e "@playbook-vars.yml" ${PLAYBOOK_PATH}
+    PLAYBOOK_PATH="$1"
+    ONLY_THIS_HOST="$2"
+    shift 2
+
+    EXTRA_ARGS=
+    [ "${ONLY_THIS_HOST}" == "all" ] || EXTRA_ARGS="-l localhost,${ONLY_THIS_HOST}"
+
+    ansible-playbook $* -i ${INVENTORY_PLUGIN_CONFIG_FILE} ${EXTRA_ARGS} -e "@playbook-vars.yml" ${PLAYBOOK_PATH}
 }
 
 export_component_vars() {
     COMPONENT="$1"
     if [ "${COMPONENT}" == "routinator" ]; then
-        export DOCKER_SERVICE="routinator"
-        export DOCKER_TAG="latest"
-        export DOCKER_MACHINE_NAME="routinator"
+        export COMPONENT_NAME="routinator"
+        export COMPONENT_VERSION="latest"
+        export DOCKER_SERVICE="${COMPONENT_NAME}"
+        export DOCKER_TAG="${COMPONENT_VERSION}"
+        export DOCKER_MACHINE_NAME="${COMPONENT_NAME}"
     else
         export COMPONENT_NAME="${COMPONENT%:*}"
         export COMPONENT_VERSION="${COMPONENT##*:}"
@@ -313,10 +328,18 @@ case "$MODE" in
                 check_digitalocean_api_token
                 VM_SIZE=$(get_playbook_specific_var "${PLAYBOOK_PATH}" DROPLET_SIZE)
                 [ -z "${VM_SIZE}" ] && abort "Internal error: No Droplet size specified for ${COMPONENT}."
-                echo "Deploying ${COMPONENT} as Docker Machine ${DOCKER_MACHINE_NAME} on ${VM_SIZE} Droplet in ${DIGITAL_OCEAN_REGION}.."
+                DO_TAGS="gantry_component:${COMPONENT_NAME},gantry_component_version:${COMPONENT_VERSION}"
+                if [ "${COMPONENT}" == "routinator" ]; then
+                    DO_TAGS="${DO_TAGS},gantry_type:routinator"
+                else
+                    DO_TAGS="${DO_TAGS},gantry_type:router"
+                fi
+
+                echo "Deploying ${COMPONENT} as Docker Machine ${DOCKER_MACHINE_NAME} on ${VM_SIZE} Droplet in ${DIGITAL_OCEAN_REGION} with tags '${DO_TAGS}'.."
+
                 announce-takeoff
-                create-machine ${DOCKER_MACHINE_NAME} ${VM_SIZE} ${DIGITAL_OCEAN_REGION}
-                run_playbook ${PLAYBOOK_PATH} $*
+                create-machine ${DOCKER_MACHINE_NAME} ${VM_SIZE} ${DIGITAL_OCEAN_REGION} ${DO_TAGS}
+                run_playbook ${PLAYBOOK_PATH} ${DOCKER_MACHINE_NAME} $*
                 ;;
             undeploy)
                 echo "Destroying ${COMPONENT} host Docker Machine ${DOCKER_MACHINE_NAME}.."

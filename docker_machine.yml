@@ -1,0 +1,12 @@
+plugin: docker_machine
+strict: False
+split_tags: True
+keyed_groups:
+  - prefix: gantry_name
+    key: 'dm_DOCKER_MACHINE_NAME'
+  - prefix: gantry_component
+    key: 'dm_tag_gantry_component'
+  - prefix: gantry_type
+    key: 'dm_tag_gantry_type'
+  - prefix: gantry_component_version
+    key: 'dm_tag_gantry_component_version'

@@ -41,6 +41,10 @@ COPY requirements.txt /tmp/
 RUN apt-get install -y python3-pip && \
     pip3 install -r /tmp/requirements.txt
 
+# Install Ansible Docker Machine support
+WORKDIR /root/.ansible/plugins/inventory/
+ADD https://raw.githubusercontent.com/ximon18/ansible-docker-machine-inventory-plugin/master/docker_machine.py .
+
 # Install (then below patch) the vrnetlab master branch at a fixed point in time (so that the patch cleanly applies,
 # and because the vrnetlab project doesn't use release tags which we can clone instead to achieve the same thing.
 RUN apt-get install -y git
