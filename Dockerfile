@@ -42,6 +42,7 @@ RUN apt-get install -y python3-pip && \
     pip3 install -r /tmp/requirements.txt
 
 # Install Ansible Docker Machine support
+# This will hopefully become part of Ansible core soon. See: https://github.com/ansible/ansible/pull/54946
 WORKDIR /root/.ansible/plugins/inventory/
 ADD https://raw.githubusercontent.com/ximon18/ansible-docker-machine-inventory-plugin/master/docker_machine.py .
 
