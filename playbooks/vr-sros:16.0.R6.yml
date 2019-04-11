@@ -1,57 +1,12 @@
+---
 # ROUTER_SERIES=Nokia/Alcatel SROS
 # DROPLET_SIZE=s-4vcpu-8gb
 - hosts: routers
+  vars:
+    registry_repo: nlnetlabs
   tasks:
-  - include_vars:
-      file: ../playbook-vars.yml
-
-  - block:
-    - name: "ON ROUTER {{ ansible_host }}: Install Python for Ansible"
-      raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
-      register: output
-      changed_when: output.stdout != ""
-    
-    - name: "ON ROUTER {{ ansible_host }}: Install Socat"
-      raw: test -e /usr/bin/socat || (apt -y update && apt install -y socat)
-    
-    - name: "ON ROUTER {{ ansible_host }}: Forward port {{ router_port_internal }} to port {{ router_port_external }}"
-      shell: "cd /tmp; nohup socat TCP-LISTEN:{{ router_port_external }},fork TCP:127.0.0.1:{{ router_port_internal }}"
-      async: 2592000 # keep the background process running for at most a month!
-      poll: 0
-
-  - block:
-    - name: "ON ANSIBLE CONTROLLER: Private Docker registry login ({{ registry_user }}@{{ registry_fqdn }})"
-      docker_login:
-        registry: "{{ registry_fqdn }}"
-        username: "{{ registry_user }}"
-        password: "{{ registry_pass }}"
-
-    - name: "ON ANSIBLE CONTROLLER: Run the router using docker-compose up locally but connecting to the Docker daemon on the router host"
-      docker_container:
-        name: router
-        image: "{{ registry_fqdn }}/nlnetlabs/{{ component_name }}:{{ component_version }}"
-        network_mode: host
-        privileged: true
-        command: "--username {{ router_user }} --password {{ router_pass }}"
-
-    - name: "ON ANSIBLE CONTROLLER: Private Docker registry logout"
-      docker_login:
-        registry: "{{ registry_fqdn }}"
-        state: absent          # logout
-
-    - name: "ON ANSIBLE CONTROLLER: Wait for router Docker container to become healthy"
-      command: docker ps
-      register: results
-      until: results.stdout_lines[1] | regex_search('\(healthy\)')
-      delay: 10
-      retries: "{{ router_healthcheck_retries }}"
-
-    connection: local
-    environment:
-      DOCKER_CERT_PATH: "{{ hostvars[inventory_hostname].dm_DOCKER_CERT_PATH }}"
-      DOCKER_HOST: "{{ hostvars[inventory_hostname].dm_DOCKER_HOST }}"
-      DOCKER_MACHINE_NAME: "{{ hostvars[inventory_hostname].dm_DOCKER_MACHINE_NAME }}"
-      DOCKER_TLS_VERIFY: "{{ hostvars[inventory_hostname].dm_DOCKER_TLS_VERIFY }}"
+  - name: Include plays common to all routers
+    include: router-common.yml
 
   # Note: Run with ANSIBLE_PARAMIKO_HOST_KEY_AUTO_ADD=True to avoid Paramiko SSH error authenticity of host can't be
   # established. It seems to only be configurable from environment variables set BEFORE Ansible runs, or in ansible.cfg,
