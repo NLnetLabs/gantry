@@ -1,65 +1,69 @@
 # DROPLET_SIZE=s-1vcpu-1gb
-- hosts: gantry_type_routinator
+- any_errors_fatal: yes
+  hosts: rpkicaches
   tasks:
-  - name: "ON ROUTINATOR {{ hostvars['routinator'].ansible_host }}: Install Python for Ansible"
-    raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
-    register: output
-    changed_when: output.stdout != ""
+  - block:
+    - name: "ON ROUTINATOR {{ hostvars['routinator'].ansible_host }}: Install Python for Ansible"
+      raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
+      register: output
+      changed_when: output.stdout != ""
 
-  - name: "ON ROUTINATOR {{ hostvars['routinator'].ansible_host }}: Create the tals directory"
-    file:
-      path: /etc/routinator/tals
-      state: directory
+    - name: "ON ROUTINATOR {{ hostvars['routinator'].ansible_host }}: Create the tals directory"
+      file:
+        path: /etc/routinator/tals
+        state: directory
 
-  - name: "ON ROUTINATOR {{ hostvars['routinator'].ansible_host }}: Download the tal file"
-    get_url:
-      url: https://www.arin.net/resources/manage/rpki/arin-rfc7730.tal
-      dest: /etc/routinator/tals/arin-rfc7730.tal
+    - name: "ON ROUTINATOR {{ hostvars['routinator'].ansible_host }}: Download the tal file"
+      get_url:
+        url: https://www.arin.net/resources/manage/rpki/arin-rfc7730.tal
+        dest: /etc/routinator/tals/arin-rfc7730.tal
 
-  - name: "ON ROUTINATOR {{ hostvars['routinator'].ansible_host }}: Create Routinator config file"
-    copy:
-      dest: /root/.routinator.conf
-      content: |
-        repository-dir = "/tmp"
-        tal-dir = "/root/.rpki-cache/tals/"
-        log-level = "info"
-        log = "stderr"
-        listen-http = ["0.0.0.0:9556"]
-        refresh = 60
+    - name: "ON ROUTINATOR {{ hostvars['routinator'].ansible_host }}: Check tal file exists"
+      stat:
+        path: /etc/routinator/tals/arin-rfc7730.tal
+      register: result
+      failed_when: result.stat.exists == False
 
-- hosts: localhost
-  environment:
-    DOCKER_CERT_PATH: "{{ hostvars['routinator'].dm_DOCKER_CERT_PATH }}"
-    DOCKER_HOST: "{{ hostvars['routinator'].dm_DOCKER_HOST }}"
-    DOCKER_MACHINE_NAME: "{{ hostvars['routinator'].dm_DOCKER_MACHINE_NAME }}"
-    DOCKER_TLS_VERIFY: "{{ hostvars['routinator'].dm_DOCKER_TLS_VERIFY }}"
-  tasks:
-  - name: "ON LOCALHOST: Run the Routinator using docker-compose up locally but connecting to the Docker daemon on the Routinator host"
-    docker_service:
-      project_name: gantry
-      definition:
-        version: '2'
-        services:
-          routinator:
-            container_name: routinator
-            image: nlnetlabs/routinator:latest
-            network_mode: host
-            ports:
-              - "{{ routinator_port }}:{{ routinator_port }}"
-              - 9556:9556
-            volumes:
-              - /etc/routinator/tals/arin-rfc7730.tal:/root/.rpki-cache/tals/arin.tal
-              - /root/.routinator.conf:/root/.routinator.conf
+    - name: "ON ROUTINATOR {{ hostvars['routinator'].ansible_host }}: Create Routinator config file"
+      copy:
+        dest: /root/.routinator.conf
+        content: |
+          repository-dir = "/tmp"
+          tal-dir = "/root/.rpki-cache/tals/"
+          log-level = "info"
+          log = "stderr"
+          listen-http = ["0.0.0.0:9556"]
+          refresh = 60
 
-  - name: "ON LOCALHOST: Check that the Routinator is deployed"
-    tags: checks
-    assert: { that: "routinator.routinator.state.running" }
+  - block:
+    - name: "ON ANSIBLE CONTROLLER: Run the Routinator using docker-compose up locally but connecting to the Docker daemon on the Routinator host"
+      register: result
+      docker_container:
+        name: routinator
+        image: nlnetlabs/routinator:latest
+        network_mode: host
+        ports:
+          - "{{ routinator_port }}:{{ routinator_port }}"
+          - 9556:9556
+        volumes:
+          - /etc/routinator/tals/arin-rfc7730.tal:/root/.rpki-cache/tals/arin.tal
+          - /root/.routinator.conf:/root/.routinator.conf
 
-  - name: "ON LOCALHOST: Wait for Routinator to start listening for connections"
-    tags: checks
-    wait_for:
-      host: "{{ hostvars['routinator'].ansible_host }}"
-      port: "{{ routinator_port }}"
-      state: started         # Port should be open
-      delay: 0               # No wait before first check (sec)
-      timeout: 300           # Stop checking after timeout (sec)
+    - name: "ON ANSIBLE CONTROLLER: Check that the Routinator is deployed"
+      tags: checks
+      assert: { that: "result.ansible_facts.docker_container.State.Running" }
+
+    - name: "ON ANSIBLE CONTROLLER: Wait for Routinator to start listening for connections"
+      tags: checks
+      wait_for:
+        host: "{{ hostvars['routinator'].ansible_host }}"
+        port: "{{ routinator_port }}"
+        state: started         # Port should be open
+        delay: 0               # No wait before first check (sec)
+        timeout: 300           # Stop checking after timeout (sec)
+    connection: local
+    environment:
+      DOCKER_CERT_PATH: "{{ hostvars['routinator'].dm_DOCKER_CERT_PATH }}"
+      DOCKER_HOST: "{{ hostvars['routinator'].dm_DOCKER_HOST }}"
+      DOCKER_MACHINE_NAME: "{{ hostvars['routinator'].dm_DOCKER_MACHINE_NAME }}"
+      DOCKER_TLS_VERIFY: "{{ hostvars['routinator'].dm_DOCKER_TLS_VERIFY }}"

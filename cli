@@ -330,7 +330,7 @@ case "$MODE" in
                 [ -z "${VM_SIZE}" ] && abort "Internal error: No Droplet size specified for ${COMPONENT}."
                 DO_TAGS="gantry_component:${COMPONENT_NAME},gantry_component_version:${COMPONENT_VERSION}"
                 if [ "${COMPONENT}" == "routinator" ]; then
-                    DO_TAGS="${DO_TAGS},gantry_type:routinator"
+                    DO_TAGS="${DO_TAGS},gantry_type:rpkicache"
                 else
                     DO_TAGS="${DO_TAGS},gantry_type:router"
                 fi

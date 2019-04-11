@@ -1,12 +1,13 @@
 plugin: docker_machine
-strict: False
-split_tags: True
-keyed_groups:
-  - prefix: gantry_name
-    key: 'dm_DOCKER_MACHINE_NAME'
-  - prefix: gantry_component
-    key: 'dm_tag_gantry_component'
-  - prefix: gantry_type
-    key: 'dm_tag_gantry_type'
-  - prefix: gantry_component_version
-    key: 'dm_tag_gantry_component_version'
+strict: no
+daemon_required: yes
+# see: https://docs.ansible.com/ansible/latest/user_guide/intro_patterns.html
+# see: https://docs.ansible.com/ansible/latest/plugins/inventory/constructed.html
+groups:
+  rpkicaches: dm_tags.find('gantry_type:rpkicache') != -1
+
+  routers: dm_tags.find('gantry_type:router') != -1
+compose:
+  # prevent Ansible blocking for user input to approve a previously unseen SSH host key as the host key
+  # will always be unseen when launching new machines in the cloud.
+  ansible_ssh_common_args: '"-o StrictHostKeyChecking=accept-new"'

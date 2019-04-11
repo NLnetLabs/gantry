@@ -1,3 +1,5 @@
+component_name: "{{ lookup('env', 'COMPONENT_NAME') }}"
+component_version: "{{ lookup('env', 'COMPONENT_VERSION') }}"
 registry_fqdn: "{{ lookup('env', 'DOCKER_REGISTRY_FQDN') }}"
 registry_user: "{{ lookup('env', 'DOCKER_REGISTRY_USER') }}"
 registry_pass: "{{ lookup('env', 'DOCKER_REGISTRY_PASS') }}"
