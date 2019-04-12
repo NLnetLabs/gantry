@@ -1,0 +1,14 @@
+---
+# ROUTER_SERIES=Cisco CSR1000v
+# DROPLET_SIZE=s-4vcpu-8gb
+- hosts: routers
+  vars:
+    registry_repo: vrnetlab
+  tasks:
+  - name: Include pre tasks common to all routers
+    include_tasks: tasks-router-common-pre.yml
+
+  # do router series/version specific setup here
+
+  - name: Include post tasks common to all routers
+    include_tasks: tasks-router-common-post.yml

@@ -1,9 +1,0 @@
----
-# ROUTER_SERIES=Cisco CSR1000v
-# DROPLET_SIZE=s-4vcpu-8gb
-- hosts: routers
-  vars:
-    registry_repo: vrnetlab
-  tasks:
-  - name: Include plays common to all routers
-    include: router-common.yml

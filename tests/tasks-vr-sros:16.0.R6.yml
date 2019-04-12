@@ -1,0 +1,9 @@
+
+---
+# tasks assumed to be running on a Nokai VR SROS 16.0.R6 router
+- name: "ON ROUTER {{ ansible_host }}: SHOW RPKI DATABASE"
+  sros_command:
+    commands: show router origin-validation database summary
+  register: result
+
+- debug: var=result.stdout_lines

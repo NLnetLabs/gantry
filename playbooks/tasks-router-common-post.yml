@@ -1,0 +1,6 @@
+---
+- block:
+  - name: Include user defined tasks
+    include_tasks: "{{ lookup('fileglob', lookup('env', 'GANTRY_BIND_MOUNT_GUEST_DIR') + '/tasks-*.yml') }}"
+
+  when: hostvars[inventory_hostname].dm_tags.find(component_name) != -1

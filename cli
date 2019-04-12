@@ -19,7 +19,6 @@ export ANSIBLE_GATHERING=explicit
 
 SELF="$0"
 BASEDIR=$(dirname $0)
-DOCKER_BIND_DIR="/tmp/gantry"
 PLAYBOOKS_DIR="${BASEDIR}/playbooks"
 PLAYBOOK_VARS="${BASEDIR}/playbook-vars.yml"
 DIGITAL_OCEAN_REGION="ams3"
@@ -135,8 +134,8 @@ get_deployment_report() {
     [[ $# -ge 2 && "$1" == "--component" ]] && COMPONENT_NOT="$NOT" && COMPONENT_REGEX="$2"
     [[ $# -ge 2 && "$1" == "--status" ]] && STATUS_NOT="$NOT" && STATUS_REGEX="$2"
 
-    for PLAYBOOK_PATH in $(ls ${PLAYBOOKS_DIR}/*.yml | grep -E${COMPONENT_NOT} ${COMPONENT_REGEX}); do
-        COMPONENT=$(basename ${PLAYBOOK_PATH} | sed -e 's/\.yml//')
+    for PLAYBOOK_PATH in $(ls ${PLAYBOOKS_DIR}/playbook-*.yml | grep -E${COMPONENT_NOT} ${COMPONENT_REGEX}); do
+        COMPONENT=$(basename ${PLAYBOOK_PATH} | sed -e 's/^playbook-//' -e 's/\.yml//')
         export_component_vars "${COMPONENT}"
         STATUS="$(get_machine_property ${DOCKER_MACHINE_NAME} status | grep -E${STATUS_NOT} ${STATUS_REGEX})"
         if [ ! -z "${STATUS}" ]; then
@@ -263,7 +262,7 @@ EOF
     printf "${FORMAT}" "${INDENT}" "ROUTER TYPE" "ROUTER SERIES"
     for REPORT_LINE in $(get_deployment_report --component routinator --not); do
         ROUTER="$(echo ${REPORT_LINE} | cut -d '|' -f 1)"
-        ROUTER_SERIES=$(get_playbook_specific_var "${PLAYBOOKS_DIR}/${ROUTER}.yml" ROUTER_SERIES)
+        ROUTER_SERIES=$(get_playbook_specific_var "${PLAYBOOKS_DIR}/playbook-${ROUTER}.yml" ROUTER_SERIES)
         if [ ! -z "${ROUTER_SERIES}" ]; then
             printf "${FORMAT}" "${INDENT}" "${ROUTER}" "${ROUTER_SERIES}"
         fi
@@ -282,7 +281,7 @@ case "$MODE" in
         [ $# -lt 1 ] && abort_with_usage
         COMPONENT="$1"; shift
 
-        PLAYBOOK_PATH="${PLAYBOOKS_DIR}/${COMPONENT}.yml"
+        PLAYBOOK_PATH="${PLAYBOOKS_DIR}/playbook-${COMPONENT}.yml"
         [[ "${COMPONENT}" != "all" && ! -e "${PLAYBOOK_PATH}" ]] && abort "No Ansible playbook found for ${COMPONENT}."
         if [ "${MODE}" == "undeploy" ]; then
             case $COMPONENT in
@@ -468,8 +467,8 @@ case "$MODE" in
 
                 echo
                 pushd ${BASEDIR}/vrnetlab/${PUBLISH_ROUTER_TYPE}
-                find ${DOCKER_BIND_DIR} -name '*.qcow2' -exec ln -s {} \;
-                find ${DOCKER_BIND_DIR} -name '*.qcow2.license' -exec ln -s {} \;
+                find ${GANTRY_BIND_MOUNT_GUEST_DIR} -name '*.qcow2' -exec ln -s {} \;
+                find ${GANTRY_BIND_MOUNT_GUEST_DIR} -name '*.qcow2.license' -exec ln -s {} \;
                 ls -la
                 make docker-image
                 popd

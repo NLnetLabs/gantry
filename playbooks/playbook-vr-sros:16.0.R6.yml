@@ -5,8 +5,8 @@
   vars:
     registry_repo: nlnetlabs
   tasks:
-  - name: Include plays common to all routers
-    include: router-common.yml
+  - name: Include pre tasks common to all routers
+    include_tasks: tasks-router-common-pre.yml
 
   # Note: Run with ANSIBLE_PARAMIKO_HOST_KEY_AUTO_ADD=True to avoid Paramiko SSH error authenticity of host can't be
   # established. It seems to only be configurable from environment variables set BEFORE Ansible runs, or in ansible.cfg,
@@ -32,25 +32,15 @@
           - "configure router \"Base\" origin-validation rpki-session {{ routinator_ip }} no shutdown"
 
     - name: "ON ROUTER {{ ansible_host }}: WAIT FOR CONNECTION ESTABLISHED TO THE ROUTINATOR"
-      tags: checks
       sros_command:
-        provider: "{{ provider }}"
         commands: show router origin-validation rpki-session
         wait_for: result[0] contains established
       register: result
 
     - debug: var=result.stdout_lines
-      tags: checks
 
-    - name: "ON ROUTER {{ ansible_host }}: SHOW RPKI DATABASE"
-      tags: checks
-      sros_command:
-        provider: "{{ provider }}"
-        commands: show router origin-validation database summary
-      register: result
-
-    - debug: var=result.stdout_lines
-      tags: checks
+    - name: Include post tasks common to all routers
+      include_tasks: tasks-router-common-post.yml
 
     when: hostvars[inventory_hostname].dm_tags.find(component_name) != -1
     connection: local
@@ -64,4 +54,6 @@
         port: "{{ router_port_external }}"
     module_defaults:
       sros_config:
+        provider: "{{ provider }}"
+      sros_command:
         provider: "{{ provider }}"

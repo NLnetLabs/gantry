@@ -1,6 +1,7 @@
 #!/bin/bash
 GANTRY_BIND_MOUNT_HOST_DIR=/tmp/gantry
-COMMON_ARGS="-it -e DEBUG -e ANSIBLE_DEBUG -e GANTRY_BIND_MOUNT_HOST_DIR=${GANTRY_BIND_MOUNT_HOST_DIR}"
+GANTRY_BIND_MOUNT_GUEST_DIR=/tmp/gantry
+COMMON_ARGS="-it -e DEBUG -e ANSIBLE_DEBUG -e GANTRY_BIND_MOUNT_HOST_DIR=${GANTRY_BIND_MOUNT_HOST_DIR} -e GANTRY_BIND_MOUNT_GUEST_DIR=${GANTRY_BIND_MOUNT_GUEST_DIR}"
 MANUAL_MODE=0
 
 [[ $# -eq 1 && "$1" == "manual" ]] && MANUAL_MODE=1 && shift
@@ -26,7 +27,7 @@ else
         --env-file gantry.cfg \
         --volume gantry:/root/.docker/machine \
         --volume /var/run/docker.sock:/var/run/docker.sock \
-        --volume ${GANTRY_BIND_MOUNT_HOST_DIR}:/tmp/gantry:ro \
+        --volume ${GANTRY_BIND_MOUNT_HOST_DIR}:${GANTRY_BIND_MOUNT_GUEST_DIR}:ro \
         --rm \
         nlnetlabs/gantry:latest \
         $*

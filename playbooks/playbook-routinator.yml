@@ -5,8 +5,8 @@
   - block:
     - name: "ON ROUTINATOR {{ hostvars['routinator'].ansible_host }}: Install Python for Ansible"
       raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
-      register: output
-      changed_when: output.stdout != ""
+      register: result
+      changed_when: result.stdout != ""
 
     - name: "ON ROUTINATOR {{ hostvars['routinator'].ansible_host }}: Create the tals directory"
       file:
@@ -50,11 +50,9 @@
           - /root/.routinator.conf:/root/.routinator.conf
 
     - name: "ON ANSIBLE CONTROLLER: Check that the Routinator is deployed"
-      tags: checks
       assert: { that: "result.ansible_facts.docker_container.State.Running" }
 
     - name: "ON ANSIBLE CONTROLLER: Wait for Routinator to start listening for connections"
-      tags: checks
       wait_for:
         host: "{{ hostvars['routinator'].ansible_host }}"
         port: "{{ routinator_port }}"

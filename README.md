@@ -22,6 +22,11 @@ $ ./gantry logs routinator
 ...
 RTR: Listening on 0.0.0.0:3323.
 $ ./gantry deploy vr-sros:16.0.R6  # or the router that you wish to deploy
+```
+
+Sit back and drink a coffee while the rocket launches!
+
+```
 ...
 TASK [ON ROUTER 134.209.202.139 : WAIT FOR CONNECTION ESTABLISHED TO THE ROUTINATOR] *********
 ok: [134.209.202.139 ]
@@ -44,6 +49,16 @@ ok: [134.209.202.139 ] => {
         ]
     ]
 }
+```
+## Running your own tests
+The mechanism for running your own Ansible based tests is a work-in-progress, but for example you can already do:
+
+```
+$ cp tests/* /tmp/gantry/
+$ ./gantry deploy vr-sros:16.0.R6   # or the router that you wish to deploy/run tests against
+...
+TASK [Include user defined tasks] **********************************************************************************************
+included: /tmp/gantry/tasks-vr-sros:16.0.R6.yml for vr-sros-16.0.R6
 
 TASK [ON ROUTER 134.209.202.139 : SHOW RPKI DATABASE] ****************************************
 ok: [134.209.202.139 ]
@@ -63,16 +78,7 @@ ok: [134.209.202.139 ] => {
         ]
     ]
 }
-
-$ ./gantry logs routinator --detailed
-rsyncing from rsync://ca.rg.net/rpki/.
-rsyncing from rsync://rpki.apnic.net/member_repository/.
-rsyncing from rsync://rpki.cnnic.cn/rpki/.
-rsyncing from rsync://rpkica.twnic.tw/rpki/.
-rsyncing from rsync://repository.lacnic.net/rpki/.
 ```
-
-Sit back and drink a coffee while the rocket launches!
 
 ## Status
 
@@ -80,7 +86,7 @@ The Routinator and the vr-sros-16.0.R6 router can be deployed and automatically 
 
 Other routers are a work-in-progress.
 
-No useful tests exist yet to validate how well or not the Routinator works with the touers. As part of creating such tests it would be good to see how much the stock NETCONF protocol can be used or whether origin validation related functions and data are router specific NETCONF extensions (potentially the case for at least the Alcatel/Lucent/Nokia SROS 16.0.R6 VR).
+No useful tests exist yet to validate how well or not the Routinator works with the routers. As part of creating such tests it would be good to see how much the stock NETCONF protocol can be used or whether origin validation related functions and data are router specific NETCONF extensions (potentially the case for at least the Alcatel/Lucent/Nokia SROS 16.0.R6 VR).
 
 ## Architecture
 
@@ -111,7 +117,6 @@ NLnet Labs Gantry is a tool for deploying and testing network routers in the clo
 Usage: gantry help|--help
 
 Router management commands:
-       gantry check    routinator|<ROUTER TYPE>|all 
        gantry deploy   routinator|<ROUTER TYPE> [--region <REGION:default=ams3>] 
        gantry docker   routinator|<ROUTER TYPE> ..docker cli command..
        gantry exec     routinator ..routinator cli command..
