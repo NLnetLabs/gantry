@@ -13,11 +13,11 @@
   # and Paramiko SSH seems to read known_hosts files BEFORE the Ansible playbook is executed, so we can't write logic in
   # this playbook to change the Paramiko behaviour or to supply the missing host key.
   - block:
-    - name: "ON ROUTER {{ ansible_host }}: ENABLE PORT 1/1/1 (user: {{ router_user }}, pass: {{ router_pass }}, port: {{ router_port_external }}"
+    - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: ENABLE PORT 1/1/1 (user: {{ router_user }}, pass: {{ router_pass }}, port: {{ router_port_external }}"
       sros_config:
         lines: "configure port 1/1/1 no shutdown"
     
-    - name: "ON ROUTER {{ ansible_host }}: ENABLE ROUTER OUTBOUND CONNECTIVITY VIA PORT 1/1/1"
+    - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: ENABLE ROUTER OUTBOUND CONNECTIVITY VIA PORT 1/1/1"
       sros_config:
         lines:
           - "configure router interface \"out\" port 1/1/1"
@@ -25,13 +25,13 @@
           - "configure router interface \"out\" ip-helper-address 192.168.76.2"
           - "configure router \"Base\" static-route-entry 0.0.0.0/0 next-hop 192.168.76.2 no shutdown"
 
-    - name: "ON ROUTER {{ ansible_host }}: ENABLE RPKI ORIGIN VALIDATION VIA ROUTINATOR @ {{ routinator_ip }}:{{ routinator_port }}"
+    - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: ENABLE RPKI ORIGIN VALIDATION VIA ROUTINATOR @ {{ routinator_ip }}:{{ routinator_port }}"
       sros_config:
         lines:
           - "configure router \"Base\" origin-validation rpki-session {{ routinator_ip }} port {{ routinator_port }}"
           - "configure router \"Base\" origin-validation rpki-session {{ routinator_ip }} no shutdown"
 
-    - name: "ON ROUTER {{ ansible_host }}: WAIT FOR CONNECTION ESTABLISHED TO THE ROUTINATOR"
+    - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: WAIT FOR CONNECTION ESTABLISHED TO THE ROUTINATOR"
       sros_command:
         commands: show router origin-validation rpki-session
         wait_for: result[0] contains established

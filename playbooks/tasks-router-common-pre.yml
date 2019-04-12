@@ -4,17 +4,17 @@
     file: ../playbook-vars.yml
 
 - block:
-  - name: "ON ROUTER {{ ansible_host }}: Install Python for Ansible"
+  - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: Install Python for Ansible"
     raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
     register: result
     changed_when: result.stdout != ""
 
-  - name: "ON ROUTER {{ ansible_host }}: Install Socat"
+  - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: Install Socat"
     raw: test -e /usr/bin/socat || (apt -y update && apt install -y socat)
     register: result
     changed_when: result.stdout != ""
 
-  - name: "ON ROUTER {{ ansible_host }}: Check if socat has port {{router_port_external}} open"
+  - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: Check if socat has port {{router_port_external}} open"
     shell: "ss -tp state listening sport = :{{ router_port_external }} | grep socat"
     register: result
     ignore_errors: yes
@@ -23,7 +23,7 @@
       msg: "Socat is already forwarding from port {{router_port_external}} so no need to run it again"
     when: result is succeeded
 
-  - name: "ON ROUTER {{ ansible_host }}: Forward port {{ router_port_internal }} to port {{ router_port_external }}"
+  - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: Forward port {{ router_port_internal }} to port {{ router_port_external }}"
     shell: "cd /tmp; nohup socat TCP-LISTEN:{{ router_port_external }},fork TCP:127.0.0.1:{{ router_port_internal }}"
     async: 2592000 # keep the background process running for at most a month!
     poll: 0

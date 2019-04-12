@@ -1,25 +1,45 @@
 #!/bin/bash
+GANTRY_IMAGE=nlnetlabs/gantry:latest
 GANTRY_BIND_MOUNT_HOST_DIR=/tmp/gantry
 GANTRY_BIND_MOUNT_GUEST_DIR=/tmp/gantry
-COMMON_ARGS="-it -e DEBUG -e ANSIBLE_DEBUG -e GANTRY_BIND_MOUNT_HOST_DIR=${GANTRY_BIND_MOUNT_HOST_DIR} -e GANTRY_BIND_MOUNT_GUEST_DIR=${GANTRY_BIND_MOUNT_GUEST_DIR}"
-MANUAL_MODE=0
+SHELL_MODE=0
 
-[[ $# -eq 1 && "$1" == "manual" ]] && MANUAL_MODE=1 && shift
+case $1 in
+    shell)
+        SHELL_MODE=1 && shift
+        ;;
+
+    upgrade)
+        docker pull ${GANTRY_IMAGE} && shift
+        exit 0
+        ;;
+
+    --data-dir)
+        if [[ $# -ge 2 || ! -d "${GANTRY_BIND_MOUNT_HOST_DIR}" ]]; then
+            GANTRY_BIND_MOUNT_HOST_DIR="$(realpath $2)" && shift 2
+            echo "Data directory to use on host: ${GANTRY_BIND_MOUNT_HOST_DIR}"
+        else
+            set -- --help
+        fi
+        ;;
+esac
+
+COMMON_ARGS="-it -e DEBUG -e ANSIBLE_DEBUG -e GANTRY_BIND_MOUNT_HOST_DIR=${GANTRY_BIND_MOUNT_HOST_DIR} -e GANTRY_BIND_MOUNT_GUEST_DIR=${GANTRY_BIND_MOUNT_GUEST_DIR}"
 
 docker container inspect gantry &>/dev/null
 if [ $? -eq 0 ]; then
     echo "Connecting to existing instance of gantry.."
     echo
     CMD="/opt/nlnetlabs/gantry/cli"
-    [ "${MANUAL_MODE}" -eq 1 ] && CMD=/bin/bash
+    [ "${SHELL_MODE}" -eq 1 ] && CMD=/bin/bash
     docker exec ${COMMON_ARGS} gantry ${CMD} $*
 else
     ENTRYPOINT_OVERRIDE=""
     EXTRA_ARGS=""
-    if [ "${MANUAL_MODE}" -eq 1 ]; then
+    if [ "${SHELL_MODE}" -eq 1 ]; then
         ENTRYPOINT_OVERRIDE="--entrypoint=/bin/bash"
         while [ $# -gt 0 ]; do shift; done
-        echo 'Entering manual mode, have a nice day!'
+        echo 'Entering shell mode..'
         echo
     fi
     docker run ${COMMON_ARGS} ${ENTRYPOINT_OVERRIDE} \
@@ -29,6 +49,6 @@ else
         --volume /var/run/docker.sock:/var/run/docker.sock \
         --volume ${GANTRY_BIND_MOUNT_HOST_DIR}:${GANTRY_BIND_MOUNT_GUEST_DIR}:ro \
         --rm \
-        nlnetlabs/gantry:latest \
+        ${GANTRY_IMAGE} \
         $*
 fi

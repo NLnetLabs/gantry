@@ -28,7 +28,7 @@ Sit back and drink a coffee while the rocket launches!
 
 ```
 ...
-TASK [ON ROUTER 134.209.202.139 : WAIT FOR CONNECTION ESTABLISHED TO THE ROUTINATOR] *********
+TASK [ON ROUTER vr-sros-16.0.R6 @ 134.209.202.139 : WAIT FOR CONNECTION ESTABLISHED TO THE ROUTINATOR] *********
 ok: [134.209.202.139 ]
 
 TASK [debug] *********************************************************************************
@@ -54,13 +54,12 @@ ok: [134.209.202.139 ] => {
 The mechanism for running your own Ansible based tests is a work-in-progress, but for example you can already do:
 
 ```
-$ cp tests/* /tmp/gantry/
-$ ./gantry deploy vr-sros:16.0.R6   # or the router that you wish to deploy/run tests against
+$ ./gantry --data-dir=tests deploy vr-sros:16.0.R6   # or the router that you wish to deploy/run tests against
 ...
 TASK [Include user defined tasks] **********************************************************************************************
 included: /tmp/gantry/tasks-vr-sros:16.0.R6.yml for vr-sros-16.0.R6
 
-TASK [ON ROUTER 134.209.202.139 : SHOW RPKI DATABASE] ****************************************
+TASK [ON ROUTER vr-sros-16.0.R6 @ 134.209.202.139 : SHOW RPKI DATABASE] ****************************************
 ok: [134.209.202.139 ]
 
 TASK [debug] *********************************************************************************
@@ -78,6 +77,17 @@ ok: [134.209.202.139 ] => {
         ]
     ]
 }
+```
+
+## Upgrading
+
+When using the `./gantry` wrapper script the Gantry Docker image is fetched the first time you use it. To upgrade it after that, assuming that a newer version of Gantry has been built over on [Docker Hub](https://hub.docker.com/r/nlnetlabs/gantry/builds), you can issue the following command:
+
+```
+$ ./gantry upgrade
+latest: Pulling from nlnetlabs/gantry
+Digest: sha256:16c8559eed1543a4cbc8e3324aae131cb0e6246df0668b41bb13dbd8a99c6c40
+Status: Downloaded newer image for nlnetlabs/gantry:latest
 ```
 
 ## Status
@@ -120,6 +130,7 @@ Router management commands:
        gantry deploy   routinator|<ROUTER TYPE> [--region <REGION:default=ams3>] 
        gantry docker   routinator|<ROUTER TYPE> ..docker cli command..
        gantry exec     routinator ..routinator cli command..
+       gantry ip       routinator|<ROUTER TYPE>
        gantry logs     routinator|<ROUTER TYPE> [--follow|--detailed]
        gantry ssh      routinator|<ROUTER TYPE> [--host]
        gantry status
@@ -130,7 +141,22 @@ Other commands:
 
 Where ROUTER TYPE can be one of:
        ROUTER TYPE      ROUTER SERIES
+       vr-csr:16.09.02  CiscoCSR1000v
        vr-sros:16.0.R6  Nokia/AlcatelSROS
+       vr-vmx:18.2R1.9  JunipervMX
+```
+
+_Note: The list of ROUTER TYPEs shown is the set for which specific playbooks exist in the `playbooks/` directory. You will need the appropriate virtual router image published in your Docker registry in order to actually deploy one of these routers._
+
+## Hacking
+
+If you know what you are doing and want to take full control you can dive into the Gantry wrapper container shell prompt:
+
+```
+$ ./gantry shell
+Entering shell mode..
+
+root@a18e60b24e33:/opt/nlnetlabs/gantry# 
 ```
 
 ## TO DO

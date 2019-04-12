@@ -3,28 +3,28 @@
   hosts: rpkicaches
   tasks:
   - block:
-    - name: "ON ROUTINATOR {{ hostvars['routinator'].ansible_host }}: Install Python for Ansible"
+    - name: "ON RPKICACHE {{ inventory_hostname }} @ {{ ansible_host }}: Install Python for Ansible"
       raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
       register: result
       changed_when: result.stdout != ""
 
-    - name: "ON ROUTINATOR {{ hostvars['routinator'].ansible_host }}: Create the tals directory"
+    - name: "ON RPKICACHE {{ inventory_hostname }} @ {{ ansible_host }}: Create the tals directory"
       file:
         path: /etc/routinator/tals
         state: directory
 
-    - name: "ON ROUTINATOR {{ hostvars['routinator'].ansible_host }}: Download the tal file"
+    - name: "ON RPKICACHE {{ inventory_hostname }} @ {{ ansible_host }}: Download the tal file"
       get_url:
         url: https://www.arin.net/resources/manage/rpki/arin-rfc7730.tal
         dest: /etc/routinator/tals/arin-rfc7730.tal
 
-    - name: "ON ROUTINATOR {{ hostvars['routinator'].ansible_host }}: Check tal file exists"
+    - name: "ON RPKICACHE {{ inventory_hostname }} @ {{ ansible_host }}: Check tal file exists"
       stat:
         path: /etc/routinator/tals/arin-rfc7730.tal
       register: result
       failed_when: result.stat.exists == False
 
-    - name: "ON ROUTINATOR {{ hostvars['routinator'].ansible_host }}: Create Routinator config file"
+    - name: "ON RPKICACHE {{ inventory_hostname }} @ {{ ansible_host }}: Create Routinator config file"
       copy:
         dest: /root/.routinator.conf
         content: |

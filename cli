@@ -160,13 +160,13 @@ get_deployment_report() {
         if [ "${NO_STATUS}" == "1" ]; then
             echo "${COMPONENT}|||"
         else
-        export_component_vars "${COMPONENT}"
-        STATUS="$(get_machine_property ${DOCKER_MACHINE_NAME} status | grep -E${STATUS_NOT} ${STATUS_REGEX})"
-        if [ ! -z "${STATUS}" ]; then
-            IP="$(get_machine_property ${DOCKER_MACHINE_NAME} ip)"
-            VM_SIZE=$(get_playbook_specific_var "${PLAYBOOK_PATH}" DROPLET_SIZE)
-            echo "${COMPONENT}|${STATUS}|${IP}|${VM_SIZE}"
-        fi
+            export_component_vars "${COMPONENT}"
+            STATUS="$(get_machine_property ${DOCKER_MACHINE_NAME} status | grep -E${STATUS_NOT} ${STATUS_REGEX})"
+            if [ ! -z "${STATUS}" ]; then
+                IP="$(get_machine_property ${DOCKER_MACHINE_NAME} ip)"
+                VM_SIZE=$(get_playbook_specific_var "${PLAYBOOK_PATH}" DROPLET_SIZE)
+                echo "${COMPONENT}|${STATUS}|${IP}|${VM_SIZE}"
+            fi
         fi
     done
 }
@@ -278,6 +278,17 @@ Router management commands:
 
 Other commands:
        ${BASENAME} registry ls|deploy|publish
+EOF
+
+    check_is_docker_distribution && cat >&2 <<EOF
+
+Wrapper commands:
+       ${BASENAME} --data-dir <PATH/TO/YOUR/DATA/FILES:default=${GANTRY_BIND_MOUNT_HOST_DIR}>
+       ${BASENAME} shell
+       ${BASENAME} upgrade
+EOF
+
+    cat >&2 <<EOF
 
 Where ROUTER TYPE can be one of:
 EOF

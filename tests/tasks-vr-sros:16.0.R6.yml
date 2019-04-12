@@ -1,9 +1,11 @@
-
 ---
-# tasks assumed to be running on a Nokai VR SROS 16.0.R6 router
-- name: "ON ROUTER {{ ansible_host }}: SHOW RPKI DATABASE"
-  sros_command:
-    commands: show router origin-validation database summary
-  register: result
+- block:
+  - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: SHOW RPKI DATABASE"
+    sros_command:
+      commands: show router origin-validation database summary
+    register: result
 
 - debug: var=result.stdout_lines
+
+  when: hostvars[inventory_hostname].dm_tags.find('gantry_component:vr-sros') != -1 and
+        hostvars[inventory_hostname].dm_tags.find('gantry_component_version:16-0-R6') != -1
