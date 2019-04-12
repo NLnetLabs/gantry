@@ -139,11 +139,16 @@ Router management commands:
 Other commands:
        gantry registry ls|deploy|publish
 
+Wrapper commands:
+       gantry --data-dir <PATH/TO/YOUR/DATA/FILES:default=/tmp/gantry>
+       gantry shell
+       gantry upgrade
+
 Where ROUTER TYPE can be one of:
-       ROUTER TYPE      ROUTER SERIES
-       vr-csr:16.09.02  CiscoCSR1000v
-       vr-sros:16.0.R6  Nokia/AlcatelSROS
-       vr-vmx:18.2R1.9  JunipervMX
+       ROUTER TYPE          ROUTER SERIES
+       vr-csr:16.09.02      Cisco CSR1000v
+       vr-sros:16.0.R6      Nokia/Alcatel SROS
+       vr-vmx:18.2R1.9      Juniper vMX
 ```
 
 _Note: The list of ROUTER TYPEs shown is the set for which specific playbooks exist in the `playbooks/` directory. You will need the appropriate virtual router image published in your Docker registry in order to actually deploy one of these routers._
