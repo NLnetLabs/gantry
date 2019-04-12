@@ -132,15 +132,16 @@ get_machine_property() {
 }
 
 # outputs lines in the form: <COMPONENT>|<STATUS>|<IP ADDRESS>|<VM SIZE>
-# if $1 is --component then any playbook name matching regex $2 is excluded from the output
-# if $1 is --status then only machines with a status matching regex $2 are included in the output
-# if $3 is --not then the meaning of any filter is inverted
+# usage:
+#   get_deployment_report [--component <REGEX> [--not] [--no-status]]
+#   get_deployment_report [--status <REGEX> [--not]]
 get_deployment_report() {
     COMPONENT_REGEX=".+"
     STATUS_REGEX=".+"
     COMPONENT_NOT=
     STATUS_NOT=
-    if [[ $# -eq 3 && "$3" == "--not" ]]; then
+    NO_STATUS=0
+    if [[ $# -ge 3 && "$3" == "--not" ]]; then
         NOT=v
         # [ "$1" == "--component" ] && STATUS_REGEX="^$"
         # [ "$1" == "--status" ] && COMPONENT_REGEX="^$"
@@ -148,14 +149,24 @@ get_deployment_report() {
     [[ $# -ge 2 && "$1" == "--component" ]] && COMPONENT_NOT="$NOT" && COMPONENT_REGEX="$2"
     [[ $# -ge 2 && "$1" == "--status" ]] && STATUS_NOT="$NOT" && STATUS_REGEX="$2"
 
+    NUM_ARGS_MINUS_ONE=$(($# - 1))
+    if [ $# -ge 2 ]; then
+        shift ${NUM_ARGS_MINUS_ONE}
+        [ $1 == "--no-status" ] && NO_STATUS=1
+    fi
+
     for PLAYBOOK_PATH in $(ls ${PLAYBOOKS_DIR}/playbook-*.yml | grep -E${COMPONENT_NOT} ${COMPONENT_REGEX}); do
         COMPONENT=$(basename ${PLAYBOOK_PATH} | sed -e 's/^playbook-//' -e 's/\.yml//')
+        if [ "${NO_STATUS}" == "1" ]; then
+            echo "${COMPONENT}|||"
+        else
         export_component_vars "${COMPONENT}"
         STATUS="$(get_machine_property ${DOCKER_MACHINE_NAME} status | grep -E${STATUS_NOT} ${STATUS_REGEX})"
         if [ ! -z "${STATUS}" ]; then
             IP="$(get_machine_property ${DOCKER_MACHINE_NAME} ip)"
             VM_SIZE=$(get_playbook_specific_var "${PLAYBOOK_PATH}" DROPLET_SIZE)
             echo "${COMPONENT}|${STATUS}|${IP}|${VM_SIZE}"
+        fi
         fi
     done
 }
@@ -274,7 +285,7 @@ EOF
     INDENT="       "
     FORMAT="%s%-16s %s\n"
     printf "${FORMAT}" "${INDENT}" "ROUTER TYPE" "ROUTER SERIES"
-    for REPORT_LINE in $(get_deployment_report --component routinator --not); do
+    for REPORT_LINE in $(get_deployment_report --component routinator --not --no-status); do
         ROUTER="$(echo ${REPORT_LINE} | cut -d '|' -f 1)"
         ROUTER_SERIES=$(get_playbook_specific_var "${PLAYBOOKS_DIR}/playbook-${ROUTER}.yml" ROUTER_SERIES)
         if [ ! -z "${ROUTER_SERIES}" ]; then
