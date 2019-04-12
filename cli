@@ -507,6 +507,15 @@ case "$MODE" in
         esac
         ;;
 
+    debug)
+        MODE="$1"; shift
+        case ${MODE} in
+            ansible-inventory)
+                ansible-inventory -i ${INVENTORY_PLUGIN_CONFIG_FILE} $*
+                ;;
+        esac
+        ;;
+
     help|--help)
         show_usage
         ;;
