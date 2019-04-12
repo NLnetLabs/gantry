@@ -1,6 +1,15 @@
 ---
 - block:
+  - name: Check if user defined tasks exist
+    command: "ls -1 {{ user_task_dir }} /tasks-*.yml }}"
+    register: result
+    ignore_errors: yes
+    no_log: yes
+
   - name: Include user defined tasks
-    include_tasks: "{{ lookup('fileglob', lookup('env', 'GANTRY_BIND_MOUNT_GUEST_DIR') + '/tasks-*.yml') }}"
+    include_tasks: "{{ lookup('fileglob', user_task_dir + '/tasks-*.yml') }}"
+    when: result is succeeded
 
   when: hostvars[inventory_hostname].dm_tags.find(component_name) != -1
+  vars:
+    user_task_dir: "{{ lookup('env', 'GANTRY_BIND_MOUNT_GUEST_DIR') }}"
