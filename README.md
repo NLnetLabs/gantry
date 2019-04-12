@@ -53,7 +53,7 @@ ok: [134.209.202.139 ] => {
 ## Running your own tests
 The mechanism for running your own Ansible based tests is a work-in-progress, but for example you can already do:
 
-_where the data directory is a location on your machine, in this case a subdirectory of the git clone dir_
+_note: the data directory is a location on your machine, in this case a subdirectory of the git clone dir_
 
 ```
 $ ./gantry --data-dir=tests deploy vr-sros:16.0.R6
