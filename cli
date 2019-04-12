@@ -184,7 +184,7 @@ get_playbook_specific_var() {
 
 print_status() {
     INDENT=""
-    FORMAT="%s%-16s %-16s %-16s %s\n"
+    FORMAT="%s%-20s %-10s %-16s %s\n"
     printf "${FORMAT}" "${INDENT}" "NAME" "STATE" "IP ADDRESS" "VM SIZE"
     OLDIFS=$IFS; IFS=$'\n'
     for REPORT_LINE in $(get_deployment_report); do
@@ -283,7 +283,7 @@ Where ROUTER TYPE can be one of:
 EOF
 
     INDENT="       "
-    FORMAT="%s%-16s %s\n"
+    FORMAT="%s%-20s %s\n"
     printf "${FORMAT}" "${INDENT}" "ROUTER TYPE" "ROUTER SERIES"
     for REPORT_LINE in $(get_deployment_report --component routinator --not --no-status); do
         ROUTER="$(echo ${REPORT_LINE} | cut -d '|' -f 1)"
