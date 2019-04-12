@@ -28,7 +28,7 @@ Sit back and drink a coffee while the rocket launches!
 
 ```
 ...
-TASK [ON ROUTER vr-sros-16.0.R6 @ 134.209.202.139 : WAIT FOR CONNECTION ESTABLISHED TO THE ROUTINATOR] *********
+TASK [ON ROUTER vr-sros-16.0.R6 @ 134.209.202.139 : WAIT FOR CONNECTION ESTABLISHED ...
 ok: [134.209.202.139 ]
 
 TASK [debug] *********************************************************************************
@@ -56,10 +56,10 @@ The mechanism for running your own Ansible based tests is a work-in-progress, bu
 ```
 $ ./gantry --data-dir=tests deploy vr-sros:16.0.R6   # or the router that you wish to deploy/run tests against
 ...
-TASK [Include user defined tasks] **********************************************************************************************
+TASK [Include user defined tasks] ************************************************************
 included: /tmp/gantry/tasks-vr-sros:16.0.R6.yml for vr-sros-16.0.R6
 
-TASK [ON ROUTER vr-sros-16.0.R6 @ 134.209.202.139 : SHOW RPKI DATABASE] ****************************************
+TASK [ON ROUTER vr-sros-16.0.R6 @ 134.209.202.139 : SHOW RPKI DATABASE] **********************
 ok: [134.209.202.139 ]
 
 TASK [debug] *********************************************************************************
