@@ -243,7 +243,6 @@ NLnet Labs Gantry is a tool for deploying and testing network routers in the clo
 Usage: ${BASENAME} help|--help
 
 Router management commands:
-       ${BASENAME} check    routinator|<ROUTER TYPE>|all 
        ${BASENAME} deploy   routinator|<ROUTER TYPE> [--region <REGION:default=${DIGITAL_OCEAN_REGION}>] 
        ${BASENAME} docker   routinator|<ROUTER TYPE> ..docker cli command..
        ${BASENAME} exec     routinator ..routinator cli command..
@@ -279,7 +278,7 @@ check_dependencies \
 
 MODE="$1"; shift
 case "$MODE" in
-    check|deploy|undeploy)
+    deploy|undeploy)
         [ $# -lt 1 ] && abort_with_usage
         COMPONENT="$1"; shift
 
@@ -309,16 +308,6 @@ case "$MODE" in
 
         [ "${COMPONENT}" != "all" ] && export_component_vars "${COMPONENT}"
         case ${MODE} in
-            check)
-                if [ "${COMPONENT}" == "all" ]; then
-                    REPORT=$(get_deployment_report --status ${NOT_DEPLOYED} --not)
-                    [ -z "${REPORT}" ] && abort "Cannot run checks as there are no deployed components to check."
-                    run_playbook ${PLAYBOOKS_DIR}/* --tags=checks $*
-                else
-                    export_component_vars "${COMPONENT}"
-                    run_playbook ${PLAYBOOK_PATH} --tags=checks $*
-                fi
-                ;;
             deploy)
                 [ "${COMPONENT}" == "all" ] && abort_with_usage
                 check_digitalocean_api_token
