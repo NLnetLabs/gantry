@@ -26,8 +26,16 @@ DIGITAL_OCEAN_BASE_OS_SLUG="ubuntu-18-04-x64"
 NOT_DEPLOYED="-"
 INVENTORY_PLUGIN_CONFIG_FILE="${BASEDIR}/docker_machine.yml"
 
+my_timestamp() {
+    date +'%Y-%m-%d %H:%M:%S %z'
+}
+
+my_log() {
+    echo $(my_timestamp): $*
+}
+
 abort() {
-    echo >&2 "ERROR: $*"
+    echo >&2 $(my_timestamp): ERROR: $*
     exit 1
 }
 
@@ -52,7 +60,7 @@ check_digitalocean_api_token() {
 }
 
 check_proceed() {
-    read -p "Do you wish to proceed? [y/N] " CHOICE
+    read -p "$(my_timestamp): Do you wish to proceed? [y/N] " CHOICE
     test 'y' == "${CHOICE}"
 }
 
@@ -66,7 +74,10 @@ create-machine() {
     # Commas are not in the allowed set but are used by Docker Machine to separate tags from one another.
     TAGS="$(echo $TAGS | tr '.' '-' | tr -c -d 'a-zA-Z0-9:_,-')"
 
-    docker-machine ip ${MACHINE_NAME} &>/dev/null || docker-machine create \
+    my_log "Checking if a Docker Machine with name ${MACHINE_NAME} already exists.."
+    docker-machine ip ${MACHINE_NAME} &>/dev/null || {
+        my_log "Creating a new Digital Ocean Droplet with Docker Machine (region: ${REGION}, image: ${DIGITAL_OCEAN_BASE_OS_SLUG}, size: ${MACHINE_SIZE}).."
+        docker-machine create \
         --driver digitalocean \
         --digitalocean-access-token ${DIGITALOCEAN_TOKEN} \
         --digitalocean-region ${REGION} \
@@ -74,6 +85,8 @@ create-machine() {
         --digitalocean-size ${MACHINE_SIZE} \
         --digitalocean-tags ${TAGS} \
         ${MACHINE_NAME}
+        my_log "Docker Machine creation complete."
+    }
 }
 
 destroy_machine() {
@@ -91,6 +104,7 @@ run_playbook() {
     EXTRA_ARGS=
     [ "${ONLY_THIS_HOST}" == "all" ] || EXTRA_ARGS="--limit=${ONLY_THIS_HOST}"
 
+    my_log "Executing Ansible playbook ${PLAYBOOK_PATH}.."
     ansible-playbook $* -i ${INVENTORY_PLUGIN_CONFIG_FILE} ${EXTRA_ARGS} -e "@playbook-vars.yml" ${PLAYBOOK_PATH}
 }
 
@@ -183,7 +197,7 @@ undeploy_all() {
     IFS=${OLDIFS}
 
     NUM_COMPONENTS_TO_UNDEPLOY=$(echo ${UNDEPLOY_COMPONENTS} | wc -w)
-    echo "You are about to undeploy ${NUM_COMPONENTS_TO_UNDEPLOY} components"
+    my_log "You are about to undeploy ${NUM_COMPONENTS_TO_UNDEPLOY} components"
     check_proceed || return
 
     for COMPONENT in ${UNDEPLOY_COMPONENTS}; do
@@ -319,14 +333,14 @@ case "$MODE" in
                     DO_TAGS="${DO_TAGS},gantry_type:router"
                 fi
 
-                echo "Deploying ${COMPONENT} as Docker Machine ${DOCKER_MACHINE_NAME} on ${VM_SIZE} Droplet in ${DIGITAL_OCEAN_REGION} with tags '${DO_TAGS}'.."
+                my_log "Deploying ${COMPONENT} as Docker Machine ${DOCKER_MACHINE_NAME} on ${VM_SIZE} Droplet in ${DIGITAL_OCEAN_REGION} with tags '${DO_TAGS}'.."
 
                 announce-takeoff
                 create-machine ${DOCKER_MACHINE_NAME} ${VM_SIZE} ${DIGITAL_OCEAN_REGION} ${DO_TAGS}
                 run_playbook ${PLAYBOOK_PATH} ${DOCKER_MACHINE_NAME} $*
                 ;;
             undeploy)
-                echo "Destroying ${COMPONENT} host Docker Machine ${DOCKER_MACHINE_NAME}.."
+                my_log "Destroying ${COMPONENT} host Docker Machine ${DOCKER_MACHINE_NAME}.."
                 destroy_machine ${DOCKER_MACHINE_NAME} $*
                 ;;
         esac
@@ -376,12 +390,12 @@ case "$MODE" in
                 ${SELF} exec routinator -v vrps
             fi
         elif [[ "${COMPONENT}" == "routinator" || "${SSH_TO_HOST}" -eq 1 ]]; then
-            echo "You are about to be connected to the host Droplet on which the ${COMPONENT} Docker container runs."
+            my_log "You are about to be connected to the host Droplet on which the ${COMPONENT} Docker container runs."
             check_proceed && echo && docker-machine ssh ${DOCKER_MACHINE_NAME}
         else
             SSH_PORT=$(get_playbook_global_var router_port_external)
-            echo "You are about to be connected to the proprietary interface of router ${COMPONENT}."
-            echo "When prompted enter password: ${ROUTER_PASS}"
+            my_log "You are about to be connected to the proprietary interface of router ${COMPONENT}."
+            my_log "When prompted enter password: ${ROUTER_PASS}"
             check_proceed && echo && ssh -l ${ROUTER_USER} -p ${SSH_PORT} ${IP}
         fi
         ;;
@@ -396,76 +410,75 @@ case "$MODE" in
             deploy)
                 cd ${BASEDIR}
 
-                echo "You are about to deploy a private Docker registry on a Digital Ocean droplet."
-                echo "Deployment requires a Digital Ocean account and an existing DNS domain managed by Digital Ocean".
-                echo "You are strongly advised to read the documentation about the Terraform module that will be"
-                echo "used to deploy the registry:"
-                echo
-                echo "    https://registry.terraform.io/modules/ximon18/docker-registry/digitalocean/0.0.1-alpha"
-                echo
-                echo "During deployment you will be asked some questions. Please consult the link above for help."
-
-                echo
-                echo "The following properties of your registry are already defined:"
-                echo
-                echo "    registry_fqdn: ${DOCKER_REGISTRY_FQDN}"
-                echo "    registry user: admin"
-                echo "    registry pass: ${DOCKER_REGISTRY_PASS}"
-                echo
+                my_log "You are about to deploy a private Docker registry on a Digital Ocean droplet."
+                my_log "Deployment requires a Digital Ocean account and an existing DNS domain managed by Digital Ocean".
+                my_log "You are strongly advised to read the documentation about the Terraform module that will be"
+                my_log "used to deploy the registry:"
+                my_log
+                my_log "    https://registry.terraform.io/modules/ximon18/docker-registry/digitalocean/0.0.1-alpha"
+                my_log
+                my_log "During deployment you will be asked some questions. Please consult the link above for help."
+                my_log
+                my_log "The following properties of your registry are already defined:"
+                my_log
+                my_log "    registry_fqdn: ${DOCKER_REGISTRY_FQDN}"
+                my_log "    registry user: admin"
+                my_log "    registry pass: ${DOCKER_REGISTRY_PASS}"
+                my_log
                 PARENT_DOMAIN=$(echo ${DOCKER_REGISTRY_FQDN} | cut -d '.' -f 2-)
-                echo "Deployment will FAIL if parent domain ${PARENT_DOMAIN} is not already delegated to your Digital Ocean account."
+                my_log "Deployment will FAIL if parent domain ${PARENT_DOMAIN} is not already delegated to your Digital Ocean account."
                 check_proceed || abort "User chose to abort."
 
-                echo
-                echo "An SSH key pair will be created for access to the private Docker registry Droplet."
+                my_log
+                my_log "An SSH key pair will be created for access to the private Docker registry Droplet."
                 check_proceed || abort "User chose to abort."
 
                 if [[ ! -e ~/.ssh/id_rsa || ! -e ~/.ssh/id_rsa.pub ]]; then
                     echo "Creating SSH key pair.."
                     ssh-keygen -f ~/.ssh/id_rsa -t rsa -N '' >/dev/null
                 fi
-                echo "Private Docker registry SSH key details:"
-                echo -n "Public key: "; cat ~/.ssh/id_rsa.pub
-                echo -n "Private key: "; cat ~/.ssh/id_rsa
-                echo
-                echo "Please copy these keys to a safe location."
-                echo "If you ever need to SSH into the private Docker registry Droplet you will need them!"
+                my_log "Private Docker registry SSH key details:"
+                my_log "Public key: "; cat ~/.ssh/id_rsa.pub
+                my_log "Private key: "; cat ~/.ssh/id_rsa
+                my_log
+                my_log "Please copy these keys to a safe location."
+                my_log "If you ever need to SSH into the private Docker registry Droplet you will need them!"
 
-                echo "Are you ready to begin the deployment process?"
+                my_log "Are you ready to begin the deployment process?"
                 check_proceed || abort "User chose to abort."
 
                 export TF_VAR_registry_fqdn="${DOCKER_REGISTRY_FQDN}"
                 export TF_VAR_registry_admin_password="${DOCKER_REGISTRY_PASS}"
                 terraform init && terraform apply
 
-                echo "Done."
+                my_log "Done."
                 ;;
 
             publish)
-                echo "Publishing builds a vrnetlab router image and publishes it to your private Docker registry."
-                echo "The router images and licenses must be supplied by you."
+                my_log "Publishing builds a vrnetlab router image and publishes it to your private Docker registry."
+                my_log "The router images and licenses must be supplied by you."
                 check_proceed || abort "User chose to abort."
 
-                echo
-                echo "Which of the following router image types do you want to publish?"
+                my_log
+                my_log "Which of the following router image types do you want to publish?"
                 find ${BASEDIR}/vrnetlab/ -maxdepth 1 -type d -exec test -d '{}/docker' \; -print | grep -Eo '[^/]+$' | sort | sed -e 's/^/    /'
-                read -p "Router type, e.g. sros: " PUBLISH_ROUTER_TYPE
+                read -p "$(my_timestamp): Router type, e.g. sros: " PUBLISH_ROUTER_TYPE
                 [[ ! -z ${PUBLISH_ROUTER_TYPE} && -d ${BASEDIR}/vrnetlab/${PUBLISH_ROUTER_TYPE} ]] || abort "Unknown router type ${PUBLISH_ROUTER_TYPE}"
 
-                echo
-                echo "Please copy or sym link your .qcow2 router image, and optionally a .qcow2.license file, into:"
-                echo "    ${GANTRY_BIND_MOUNT_HOST_DIR}"
+                my_log
+                my_log "Please copy or sym link your .qcow2 router image, and optionally a .qcow2.license file, into:"
+                my_log "    ${GANTRY_BIND_MOUNT_HOST_DIR}"
 
-                echo
-                echo "Please read CAREFULLY the instructions that will be printed next on your screen."
-                echo "If you do not name the copied/linked files correctly the build will FAIL."
+                my_log
+                my_log "Please read CAREFULLY the instructions that will be printed next on your screen."
+                my_log "If you do not name the copied/linked files correctly the build will FAIL."
                 check_proceed || abort "User chose to abort."
 
-                echo
+                my_log
                 cat ${BASEDIR}/vrnetlab/${PUBLISH_ROUTER_TYPE}/README.md
                 check_proceed || abort "User chose to abort."
 
-                echo
+                my_log
                 pushd ${BASEDIR}/vrnetlab/${PUBLISH_ROUTER_TYPE}
                 find ${GANTRY_BIND_MOUNT_GUEST_DIR} -name '*.qcow2' -exec ln -s {} \;
                 find ${GANTRY_BIND_MOUNT_GUEST_DIR} -name '*.qcow2.license' -exec ln -s {} \;
@@ -473,12 +486,12 @@ case "$MODE" in
                 make docker-image
                 popd
 
-                echo
+                my_log
                 BUILT_IMAGE=$(docker image ls --format "{{.Repository}}:{{.Tag}}" | head -n 1)
                 [ -z ${BUILT_IMAGE} ] && abort "The image build process failed."
 
-                echo "The image build has finished. Does the following identify the image that was built?"
-                echo "    ${BUILT_IMAGE}"
+                my_log "The image build has finished. Does the following identify the image that was built?"
+                my_log "    ${BUILT_IMAGE}"
                 check_proceed || abort "User chose to abort"
 
                 docker tag ${BUILT_IMAGE} ${DOCKER_REGISTRY_FQDN}/${BUILT_IMAGE}
@@ -486,7 +499,7 @@ case "$MODE" in
                 docker push ${DOCKER_REGISTRY_FQDN}/${BUILT_IMAGE}
                 docker logout
 
-                echo "Done."
+                my_log "Done."
                 ;;
 
             *)
