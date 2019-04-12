@@ -17,6 +17,7 @@
   - name: "ON ROUTER {{ ansible_host }}: Check if socat has port {{router_port_external}} open"
     shell: "ss -tp state listening sport = :{{ router_port_external }} | grep socat"
     register: result
+    ignore_errors: yes
 
   - debug:
       msg: "Socat is already forwarding from port {{router_port_external}} so no need to run it again"
