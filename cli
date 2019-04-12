@@ -12,10 +12,6 @@ set -e -u
 # Without this the Ansible Network CLI module will fail to connect to the router due to unknown SSH host key
 export ANSIBLE_PARAMIKO_HOST_KEY_AUTO_ADD=True
 
-# The hosts we control with Ansible are created dynamically so we don't use a pre-created host inventory and the
-# default warning about an empty host inventory is just annoying so disable it.
-export ANSIBLE_LOCALHOST_WARNING=False
-
 # Disable automated fact gathering as the host on which Ansible runs is not interesting to us, we're interested
 # in what happens inside Docker containers on the host, and having to say gather_facts: false for every - hosts:
 # section in the Ansible templates is really annoying, as is waiting for fact gathering that isn't needed.
@@ -94,7 +90,7 @@ run_playbook() {
     shift 2
 
     EXTRA_ARGS=
-    [ "${ONLY_THIS_HOST}" == "all" ] || EXTRA_ARGS="-l localhost,${ONLY_THIS_HOST}"
+    [ "${ONLY_THIS_HOST}" == "all" ] || EXTRA_ARGS="--limit=${ONLY_THIS_HOST}"
 
     ansible-playbook $* -i ${INVENTORY_PLUGIN_CONFIG_FILE} ${EXTRA_ARGS} -e "@playbook-vars.yml" ${PLAYBOOK_PATH}
 }
