@@ -179,7 +179,7 @@ get_playbook_global_var() {
 get_playbook_specific_var() {
     PLAYBOOK="$1"
     VAR_TO_GET="$2"
-    grep -E "^# ${VAR_TO_GET}=" ${PLAYBOOK} | cut -d '=' -f 2 | tr -d '[:space:]'
+    grep -E "^# ${VAR_TO_GET}=" ${PLAYBOOK} | cut -d '=' -f 2
 }
 
 print_status() {
