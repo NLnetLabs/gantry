@@ -1,3 +1,5 @@
+![Travis CI status badge](https://travis-ci.com/NLnetLabs/gantry.svg?branch=master)
+
 # Gantry
 
 > _a structure built on a rocket launch pad to facilitate assembly and servicing_
