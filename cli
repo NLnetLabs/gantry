@@ -502,8 +502,7 @@ case "$MODE" in
 
                 my_log
                 pushd ${BASEDIR}/vrnetlab/${PUBLISH_ROUTER_TYPE}
-                find ${GANTRY_BIND_MOUNT_GUEST_DIR} -name '*.qcow2' -exec ln -s {} \;
-                find ${GANTRY_BIND_MOUNT_GUEST_DIR} -name '*.qcow2.license' -exec ln -s {} \;
+                find ${GANTRY_BIND_MOUNT_GUEST_DIR} -type f -exec ln -s {} \;
                 ls -la
                 make docker-image
                 popd
