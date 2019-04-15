@@ -119,7 +119,7 @@ export_component_vars() {
     else
         export COMPONENT_NAME="${COMPONENT%:*}"
         export COMPONENT_VERSION="${COMPONENT##*:}"
-        export DOCKER_SERVICE="${COMPONENT_NAME}"
+        export DOCKER_SERVICE="router"
         export DOCKER_TAG="${COMPONENT_VERSION}"
         export DOCKER_MACHINE_NAME="${COMPONENT_NAME}-${COMPONENT_VERSION}"
     fi
