@@ -142,6 +142,7 @@ Router management commands:
 
 Other commands:
        gantry registry ls|deploy|publish
+       gantry registry rm <repo>/<image>:<tag>
 
 Wrapper commands:
        gantry --data-dir <PATH/TO/YOUR/DATA/FILES:default=/tmp/gantry>

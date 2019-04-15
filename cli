@@ -278,6 +278,7 @@ Router management commands:
 
 Other commands:
        ${BASENAME} registry ls|deploy|publish
+       ${BASENAME} registry rm <repo>/<image>:<tag>
 EOF
 
     check_is_docker_distribution && cat >&2 <<EOF
@@ -427,6 +428,12 @@ case "$MODE" in
         case $1 in
             ls)
                 reg ls -u ${DOCKER_REGISTRY_USER} -p ${DOCKER_REGISTRY_PASS} ${DOCKER_REGISTRY_FQDN}
+                ;;
+
+            rm)
+                my_log "You are about to delete private Docker registry image '$2'"
+                check_proceed || abort "User chose to abort."
+                reg rm -u ${DOCKER_REGISTRY_USER} -p ${DOCKER_REGISTRY_PASS} ${DOCKER_REGISTRY_FQDN}/$2
                 ;;
 
             deploy)
