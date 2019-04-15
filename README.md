@@ -1,4 +1,4 @@
-![Travis CI status badge](https://travis-ci.com/NLnetLabs/gantry.svg?branch=master)
+[![Travis CI status badge](https://travis-ci.com/NLnetLabs/gantry.svg?branch=master)](https://travis-ci.com/NLnetLabs/gantry)
 
 # Gantry
 
