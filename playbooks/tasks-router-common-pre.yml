@@ -42,7 +42,7 @@
       image: "{{ registry_fqdn }}/{{ registry_repo }}/{{ component_name }}:{{ component_version }}"
       network_mode: host
       privileged: true
-      command: "--username {{ router_user }} --password {{ router_pass }}"
+      command: "--username {{ router_user }} --password {{ router_pass }} --trace"
 
   - name: "ON ANSIBLE CONTROLLER: Private Docker registry logout"
     docker_login:
