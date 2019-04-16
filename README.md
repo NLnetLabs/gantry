@@ -58,7 +58,7 @@ The mechanism for running your own Ansible based tests is a work-in-progress, bu
 _note: the data directory is a location on your machine, in this case a subdirectory of the git clone dir_
 
 ```
-$ ./gantry --data-dir=tests deploy vr-sros:16.0.R6
+$ ./gantry --data-dir tests deploy vr-sros:16.0.R6
 ...
 TASK [Include user defined tasks] ************************************************************
 included: /tmp/gantry/tasks-vr-sros:16.0.R6.yml for vr-sros-16.0.R6
