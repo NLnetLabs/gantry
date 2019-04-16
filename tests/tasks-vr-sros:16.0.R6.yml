@@ -1,11 +1,44 @@
 ---
 - block:
-  - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: SHOW RPKI DATABASE"
+  - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: SHOW RPKI DATABASE SUMMARY"
     sros_command:
       commands: show router origin-validation database summary
     register: result
 
-- debug: var=result.stdout_lines
+  - debug: var=result.stdout_lines
+
+  - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: SHOW RPKI SESSION DETAIL"
+    sros_command:
+      commands: show router origin-validation rpki-session detail
+    register: result
+
+  - debug: var=result.stdout[0]
+
+  - set_fact:
+      ovdb: "{{ result.stdout[0] | parse_cli('/tmp/gantry/parser-vr-sros-rpki-session.yml') }}"
+
+  - debug:
+      msg: "RPKI session aka Routinator serial: {{ ovdb.sessions[0].session_id }}"
+
+  # Fetch the origin-validation Validated ROA Payload (VRP) database and transform the VRPs
+  # into Routinator-like JSON structure ({ asn, prefix, maxLength }).
+  - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: FETCH FULL RPKI DATABASE"
+    sros_command:
+      timeout: 60
+      commands:
+        - environment no more
+        - show router origin-validation database
+    register: result
+
+  # TODO: eliminate hard-coded /tmp/gantry reference
+  - set_fact:
+      ovdb: "{{ result.stdout[1] | parse_cli('/tmp/gantry/parser-vr-sros-rpki-vrps.yml') }}"
+
+  - debug:
+      msg: "item: {{ ovdb.vrps[vrp_index|int] }}"
+    loop: "{{ range(0, 3)|list }}"
+    loop_control:
+      loop_var: vrp_index
 
   when: hostvars[inventory_hostname].dm_tags.find('gantry_component:vr-sros') != -1 and
         hostvars[inventory_hostname].dm_tags.find('gantry_component_version:16-0-R6') != -1

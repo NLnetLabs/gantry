@@ -1,0 +1,62 @@
+---
+# Nokia SROS origin-database parser
+#
+# - sros_command:
+#     commands:
+#       - environment no more
+#       - show router origin-validation database
+#   register: result
+#
+# - set_fact:
+#     ovdb: "{{ result.stdout[1] | parse_cli(/path/to/this/file.yml) }}"
+#
+# Example command output:
+#
+# ===============================================================================
+# Static and Dynamic VRP Database Entries
+# ===============================================================================
+# Prefix Range [Flags]                                            Origin AS
+#    Session IP [Flags]                                           
+# -------------------------------------------------------------------------------
+# 1.0.0.0/24-24 [Dynamic]                                         13335
+#     178.62.200.176 [B]                                              
+# 1.1.1.0/24-24 [Dynamic]                                         13335
+#     178.62.200.176 [B]                                              
+# 1.9.0.0/16-24 [Dynamic]                                         4788
+#     178.62.200.176 [B]                                              
+# 1.9.12.0/24-24 [Dynamic]                                        65037
+#     178.62.200.176 [B]                                              
+#
+# ...
+#
+# -------------------------------------------------------------------------------
+# No. of Vrp Database Entries: 836
+# -------------------------------------------------------------------------------
+# Flags: B = Base instance session
+#        M = Management instance session
+#        Static-V = Static-Valid; Static-I = Static-Invalid
+# ===============================================================================
+#
+# Example variable contents:
+#
+# "ovdb": {
+#     "vrps": [
+#         {
+#             "origin_as": 13335,
+#             "prefix_range": "1.0.0.0/24-24",
+#             "prefix_range_flags": "Dynamic",
+#             "session_ip": "178.62.200.176",
+#             "session_ip_flags": "B"
+#         },
+# ...
+
+vars:
+  vrp:
+    asn: "{{ item.origin_as }}"
+    prefix: "{{ item.prefix }}"
+    maxLength: "{{ item.max_length }}"
+
+keys:
+  vrps:
+    value: "{{ vrp }}"
+    items: "^(?P<prefix>[0-9.]+\/[0-9]+)-(?P<max_length>[0-9]+)\\s\\[(?P<prefix_range_flags>[^]]+)\\]\\s+(?P<origin_as>\\d+)\\s+(?P<session_ip>[0-9.]+)\\s\\[(?P<session_ip_flags>[^]])\\]"

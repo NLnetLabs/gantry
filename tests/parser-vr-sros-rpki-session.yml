@@ -1,0 +1,48 @@
+---
+# Nokia SROS origin-database parser
+#
+# - sros_command:
+#     commands:
+#       - show router origin-validation rpki-session detail
+#   register: result
+#
+# - set_fact:
+#     ovdb: "{{ result.stdout[0] | parse_cli(/path/to/this/file.yml) }}"
+#
+# Example command output:
+#
+# ===============================================================================
+# Rpki Session Information
+# ===============================================================================
+# IP Address         : 178.62.200.176
+# -------------------------------------------------------------------------------
+# Port               : 3323               Oper State         : established
+# UpTime             : 0d 02:42:40        Flaps              : 0
+# Active IPv4 records: 68701              Active IPv6 records: 12412
+# Admin State        : Up                 Local Address      : n/a
+# Hold Time          : 600                Refresh Time       : 300
+# Stale Route Time   : 3600               Connect Retry      : 120
+# Serial ID          : 36179              Session ID         : 13
+# ===============================================================================
+# No. of Rpki-Sessions : 1
+# ===============================================================================
+#
+# Example variable contents:
+#
+#    "ovdb": {
+#        "sessions": [
+#            {
+#                "session_id": 13
+#            }
+#        ]
+#    }
+# ...
+
+vars:
+  session:
+    session_id: "{{ item.session_id }}"
+
+keys:
+  sessions:
+    value: "{{ session }}"
+    items: "Session ID\\s+:\\s(?P<session_id>\\d+)"
