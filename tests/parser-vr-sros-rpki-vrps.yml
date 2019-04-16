@@ -42,11 +42,9 @@
 # "ovdb": {
 #     "vrps": [
 #         {
-#             "origin_as": 13335,
-#             "prefix_range": "1.0.0.0/24-24",
-#             "prefix_range_flags": "Dynamic",
-#             "session_ip": "178.62.200.176",
-#             "session_ip_flags": "B"
+#             "asn": 13335,
+#             "prefix": "1.0.0.0/24",
+#             "maxLength": "24"
 #         },
 # ...
 
