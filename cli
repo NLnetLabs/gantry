@@ -304,15 +304,28 @@ EOF
 
     INDENT="       "
     FORMAT="%s%-20s %s\n"
-    printf "${FORMAT}" "${INDENT}" "ROUTER TYPE" "ROUTER SERIES"
-    for REPORT_LINE in $(get_deployment_report --component routinator --not --no-status); do
-        ROUTER="$(echo ${REPORT_LINE} | cut -d '|' -f 1)"
-        ROUTER_SERIES=$(get_playbook_specific_var "${PLAYBOOKS_DIR}/playbook-${ROUTER}.yml" ROUTER_SERIES)
-        if [ ! -z "${ROUTER_SERIES}" ]; then
-            printf "${FORMAT}" "${INDENT}" "${ROUTER}" "${ROUTER_SERIES}"
+
+cleanup() {
+    if [[ "${GANTRY_INSIDE_DOCKER}" -eq "1" && "$$" -eq 1 ]]; then
+        # We are running inside a Docker container and we are process ID 1. This means that we are the
+        # Docker 'run' invocation of this container. If there are any ExecIDs for this container these
+        # identify other invocations of commands via Docker 'exec' inside this same container. If we
+        # exit now we will kill those commands, even if they are still running. Instead wait until they
+        # have completed before exiting.
+        OUTPUT_DOT=0
+        while docker inspect gantry -f "{{ .ExecIDs }}" | fgrep -qv '[]'; do
+            if [ ${OUTPUT_DOT} -eq 0 ]; then
+                OUTPUT_DOT=1
+                echo -n >&2 "Waiting for all Gantry processes to finish: "
+            else
+                echo -n .
         fi
+            sleep 5s
     done
+    fi
 }
+
+trap cleanup EXIT
 
 check_dependencies \
     docker-machine \
@@ -322,6 +335,11 @@ check_dependencies \
 
 MODE="$1"; shift
 case "$MODE" in
+    shell)
+        [ "${GANTRY_INSIDE_DOCKER}" -eq 1 ] || abort "Shell mode is only available when Gantry is invoked as a Docker container"
+        bash
+        ;;
+
     deploy|undeploy)
         [ $# -lt 1 ] && abort_with_usage
         COMPONENT="$1"; shift
