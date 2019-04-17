@@ -17,6 +17,11 @@ export ANSIBLE_PARAMIKO_HOST_KEY_AUTO_ADD=True
 # section in the Ansible templates is really annoying, as is waiting for fact gathering that isn't needed.
 export ANSIBLE_GATHERING=explicit
 
+# I haven't found a use for, or way to make, retry files work yet, and when playbooks are taken from a Docker
+# bind mount that is read-only to the container Ansible warns about being unable to write the retry file. Just
+# disable it ...
+export ANSIBLE_RETRY_FILES_ENABLED=no
+
 SELF="$0"
 BASEDIR=$(dirname $0)
 PLAYBOOKS_DIR="${BASEDIR}/playbooks"
