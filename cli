@@ -22,6 +22,9 @@ export ANSIBLE_GATHERING=explicit
 # disable it ...
 export ANSIBLE_RETRY_FILES_ENABLED=no
 
+# Enable Ansible task profiling (causes Ansible to show how long tasks take)
+export ANSIBLE_CALLBACK_WHITELIST=profile_tasks
+
 SELF="$0"
 BASEDIR=$(dirname $0)
 PLAYBOOKS_DIR="${BASEDIR}/playbooks"
