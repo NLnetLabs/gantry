@@ -26,7 +26,7 @@ case $1 in
         ;;
 esac
 
-COMMON_ARGS="-it -e DEBUG -e ANSIBLE_DEBUG -e ANSIBLE_NOCOLOR -e ANSIBLE_VERBOSITY -e GANTRY_BIND_MOUNT_HOST_DIR=${GANTRY_BIND_MOUNT_HOST_DIR} -e GANTRY_BIND_MOUNT_GUEST_DIR=${GANTRY_BIND_MOUNT_GUEST_DIR}"
+COMMON_ARGS="-it -e DEBUG -e ANSIBLE_DEBUG -e ANSIBLE_NOCOLOR -e ANSIBLE_VERBOSITY -e AWS_ACCESS_KEY -e AWS_SECRET_KEY -e GANTRY_BIND_MOUNT_HOST_DIR=${GANTRY_BIND_MOUNT_HOST_DIR} -e GANTRY_BIND_MOUNT_GUEST_DIR=${GANTRY_BIND_MOUNT_GUEST_DIR}"
 
 if [ ${ALREADY_RUNNING} -eq 1 ]; then
     echo "Connecting to existing instance of gantry.."
@@ -38,7 +38,7 @@ else
         --env-file gantry.cfg \
         --volume gantry:/root/.docker/machine \
         --volume /var/run/docker.sock:/var/run/docker.sock \
-        --volume ${GANTRY_BIND_MOUNT_HOST_DIR}:${GANTRY_BIND_MOUNT_GUEST_DIR}:ro \
+        --volume ${GANTRY_BIND_MOUNT_HOST_DIR}:${GANTRY_BIND_MOUNT_GUEST_DIR}:rw \
         --rm \
         ${GANTRY_IMAGE} \
         $*

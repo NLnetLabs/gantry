@@ -19,7 +19,10 @@ RUN apt-get update && \
     apt-get install -y \
         containerd.io \
         docker-ce \
-        docker-ce-cli
+        docker-ce-cli \
+        openjdk-11-jre-headless \
+        python-dateutil \
+        python-magic
 
 # Install Docker Machine
 # See: https://docs.docker.com/machine/install-machine/
@@ -61,6 +64,18 @@ RUN REG_SHA256="0470b6707ac68fa89d0cd92c83df5932c9822df7176fcf02d131d75f74a36a19
     curl -fSL "https://github.com/genuinetools/reg/releases/download/v0.16.0/reg-linux-amd64" -o "/usr/local/bin/reg" && \
     echo "${REG_SHA256}  /usr/local/bin/reg" | sha256sum -c - && \
     chmod a+x "/usr/local/bin/reg"
+
+# Install Allure JUnit report generator
+RUN curl -L http://repo.maven.apache.org/maven2/io/qameta/allure/allure-commandline/2.10.0/allure-commandline-2.10.0.zip -o /tmp/temp.zip && \
+    unzip -d /opt /tmp/temp.zip && \
+    rm /tmp/temp.zip && ln -s /opt/allure-* /opt/allure
+
+# Install s3cmd to upload to Digital Ocean spaces from Travis CI, even when the tests fail
+# (the builtin Travis CI support for upload to S3/DO Spaces is only in the deploy phase which isn't executed if
+# the tests fail)
+RUN curl -L https://github.com/s3tools/s3cmd/releases/download/v2.0.2/s3cmd-2.0.2.zip -o /tmp/temp.zip && \
+    unzip -d /opt /tmp/temp.zip && \
+    rm /tmp/temp.zip && ln -s /opt/s3cmd-* /opt/s3cmd
 
 # Install our tools
 COPY . /opt/nlnetlabs/gantry

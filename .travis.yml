@@ -15,3 +15,5 @@ script:
 - "./gantry test all"
 after_script:
 - "./gantry undeploy all --force"
+- "./gantry test generate-report"
+- "./gantry test upload-report ams3 nlnetlabs-test-reports/gantry"
