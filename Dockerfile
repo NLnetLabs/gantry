@@ -81,7 +81,7 @@ RUN curl -L https://github.com/s3tools/s3cmd/releases/download/v2.0.2/s3cmd-2.0.
 
 # Install our tools
 COPY . /opt/nlnetlabs/gantry
-RUN ln -s /usr/bin/python3 /usr/bin/python
+#RUN ln -s /usr/bin/python3 /usr/bin/python
 
 # Patch vrnetlab
 WORKDIR /opt/nlnetlabs/gantry/vrnetlab
