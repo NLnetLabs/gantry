@@ -1,8 +1,4 @@
 ---
-# tasks assumed to be running on a router
-- include_vars:
-    file: ../playbook-vars.yml
-
 - block:
   - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: Install Python for Ansible"
     raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
