@@ -1,4 +1,4 @@
-language: generic
+language: minimal
 sudo: required
 dist: xenial
 services:
@@ -6,10 +6,12 @@ services:
 before_install:
 - openssl aes-256-cbc -K $encrypted_90df736c1e20_key -iv $encrypted_90df736c1e20_iv -in gantry.cfg.enc -out gantry.cfg -d
 - docker build -t nlnetlabs/gantry .
-script:
+before_script:
 - "mkdir /tmp/gantry"
 - "cp tests/* /tmp/gantry"
 - "./gantry deploy routinator"
 - "./gantry deploy vr-sros:16.0.R6"
+script:
 - "./gantry test all"
+after_script:
 - "./gantry undeploy all --force"
