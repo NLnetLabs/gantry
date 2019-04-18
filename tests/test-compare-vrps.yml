@@ -1,0 +1,152 @@
+---
+- any_errors_fatal: yes
+  hosts: routinator
+  connection: local
+  environment:
+    DOCKER_CERT_PATH: "{{ hostvars['routinator'].dm_DOCKER_CERT_PATH }}"
+    DOCKER_HOST: "{{ hostvars['routinator'].dm_DOCKER_HOST }}"
+    DOCKER_MACHINE_NAME: "{{ hostvars['routinator'].dm_DOCKER_MACHINE_NAME }}"
+    DOCKER_TLS_VERIFY: "{{ hostvars['routinator'].dm_DOCKER_TLS_VERIFY }}"
+  tasks:
+  - name: "ON ANSIBLE CONTROLLER: FETCH ROUTINATOR LOG FROM {{ inventory_hostname }} @ {{ ansible_host }}"
+    command: docker logs routinator
+    register: result
+
+  - name: "ON ANSIBLE CONTROLLER: FIND MOST RECENT SERIAL NUMBER IN ROUTINATOR LOG"
+    set_fact:
+      routinator_serial: "{{ result.stderr_lines | select('match', '^New serial is ([0-9]+)') | list | last | regex_search('([0-9]+)', '\\1') | first }}"
+
+  - debug: var=routinator_serial
+
+  # TODO: Use tempfile.
+  - name: "ON ANSIBLE CONTROLLER: FETCH FULL ROUTINATOR VRP DATABASE FROM {{ inventory_hostname }} @ {{ ansible_host }}"
+    get_url:
+      url: "http://{{ hostvars['routinator'].ansible_host }}:9556/json"
+      dest: /tmp/routinator.json
+
+  - name: "ON ANSIBLE CONTROLLER: PARSE, TRANSFORM AND SORT ROUTINATOR VRPS"
+    set_fact:
+      routinator_vrps: "{{ lookup('file', '/tmp/routinator.json') | from_json | json_query(qry) }}"
+    vars:
+      qry: "roas[].join('|', [asn, prefix, to_string(maxLength)]) | sort(@)"
+
+  # Example output: "Transformed 81560 Routinator VRPs into format ['AS0|103.209.125.0/24|24', 'AS0|103.209.127.0/24|24', 'AS0|103.237.95.0/24|24']..."
+  - debug:
+      msg: "Transformed {{ routinator_vrps | length }} Routinator VRPs into format {{ routinator_vrps[0:3] }}..."
+
+- hosts: routers
+  tasks:
+  - block:
+    - name: "ON ANSIBLE CONTROLLER: FETCH ROUTER RPKI DATABASE SUMMARY FROM {{ inventory_hostname }} @ {{ ansible_host }}"
+      sros_command:
+        commands: show router origin-validation database summary
+      register: result
+
+    - debug: var=result.stdout_lines
+  
+    - name: "ON ANSIBLE CONTROLLER: WAIT FOR ROUTER {{ inventory_hostname }} @ {{ ansible_host }} TO HAVE ORIGIN VALIDATION SESSION ID {{ routinator_serial }}.."
+      include_tasks: tasks-get-session-id.yml
+      until: ovdb.sessions[0].session_id == routinator_serial
+      retries: 60
+      delay: 10
+
+    # Fetch the origin-validation Validated ROA Payload (VRP) database and transform the VRPs
+    # into Routinator-like JSON structure ({ asn, prefix, maxLength }).
+    - name: "ON ANSIBLE CONTROLLER: FETCH FULL RPKI DATABASE FROM {{ inventory_hostname }} @ {{ ansible_host }}"
+      sros_command:
+        timeout: 60
+        commands:
+          - environment no more
+          - show router origin-validation database
+      register: result
+
+    # result.stdout[1] now contains a single long string of the form: (lines are split here for readability, in reality it's a single string)
+    # ===============================================================================\n
+    # Static and Dynamic VRP Database Entries\n
+    # ===============================================================================\n
+    # Prefix Range [Flags]                                            Origin AS\n
+    #    Session IP [Flags]                                           \n
+    # -------------------------------------------------------------------------------\n
+    # 1.0.0.0/24-24 [Dynamic]                                         13335\n
+    #     142.93.237.82 [B]                                               \n
+    # 1.1.1.0/24-24 [Dynamic]                                         13335\n
+    #     142.93.237.82 [B]                                               \n
+    # ...
+
+    # TODO: eliminate hard-coded /tmp/gantry reference
+    # TODO: this is SLOW, can we speed it up?
+    - name: "ON ANSIBLE CONTROLLER: PARSE, TRANSFORM AND SORT ROUTER VRPS"
+      set_fact:
+        router_vrps: "{{ result.stdout[1] | parse_cli(parser_schema) | json_query(qry) }}"
+      vars:
+        parser_schema: "{{ lookup('env', 'GANTRY_BIND_MOUNT_GUEST_DIR') }}/parser-vr-sros-rpki-vrps.yml"
+        qry: "vrps[].join('|', [asn, prefix, to_string(maxLength)]) | sort(@)"
+
+    # Example output: "Transformed 81577 router VRPs into format ['AS0|103.209.125.0/24|24', 'AS0|103.209.127.0/24|24', 'AS0|103.237.95.0/24|24']...
+    - debug:
+        msg: "Transformed {{ router_vrps | length }} router VRPs into format {{ router_vrps[0:3] }}..."
+
+    # Unusably slow...
+    # - debug:
+    #     msg: "Symmetric Difference: {{ routinator_vrps | symmetric_difference(router_vrps) }}"
+    # Instead do the block below:
+    - block:
+      - name: "ON ANSIBLE CONTROLLER: GENERATE TEMPORARY FILE NAMES FOR VRP DIFF"
+        tempfile:
+        with_items:
+          - routinator_vrps
+          - router_vrps
+        register: results
+
+      - set_fact:
+          tmpfiles: "{{ results.results }}"
+
+      - name: "ON ANSIBLE CONTROLLER: WRITE VRPS TO TEMPORARY FILES FOR DIFF"
+        copy:
+          content: "{{ lookup('vars', item.item) | join('\n') }}"
+          dest: "{{ item.path }}"
+        with_items: "{{ tmpfiles }}"
+
+      - name: "ON ANSIBLE CONTROLLER: DIFF VRP TEMPORARY FILES"
+        command: "diff {{ tmpfiles[0].path }} {{ tmpfiles[1].path }}"
+        register: results
+        failed_when: results.rc < 0 or results.rc > 1
+        no_log: yes
+
+      - name: "ON ANSIBLE CONTROLLER: VRP DIFF RESULT"
+        debug: var=results.stdout_lines
+
+      - name: "ON ANSIBLE CONTROLLER: ANALYZE VRP DIFF RESULT"
+        fail:
+          msg: "Routinator and router VRP sets for serial '{{ routinator_serial }}' differ: extra/missing/total VRPs: {{ num_extra }}/{{ num_missing }}/{{ total_vrps }}"
+        when: results.rc != 0
+        vars:
+          num_extra: "{{ results.stdout | regex_findall('>') | length }}"
+          num_missing: "{{ results.stdout | regex_findall('<') | length }}"
+          total_vrps: "{{ routinator_vrps | length }}"
+
+      always:
+        - name: "ON ANSIBLE CONTROLLER: DELETE TEMPORARY VRP DIFF FILES"
+          file:
+            state: absent
+            path: "{{ item.path }}"
+          with_items: "{{ tmpfiles }}"
+
+    when: hostvars[inventory_hostname].dm_tags.find('gantry_component:vr-sros') != -1 and
+          hostvars[inventory_hostname].dm_tags.find('gantry_component_version:16-0-R6') != -1
+    connection: local
+    vars:
+      router_ip: "{{ ansible_host }}"
+      routinator_ip: "{{ hostvars['routinator'].ansible_host }}"
+      routinator_serial: "{{ hostvars['routinator']['routinator_serial'] }}"
+      routinator_vrps: "{{ hostvars['routinator']['routinator_vrps'] }}"
+      provider:
+        host: "{{ ansible_host }}"
+        username: "{{ router_user }}"
+        password: "{{ router_pass }}"
+        port: "{{ router_port_external }}"
+    module_defaults:
+      sros_config:
+        provider: "{{ provider }}"
+      sros_command:
+        provider: "{{ provider }}"

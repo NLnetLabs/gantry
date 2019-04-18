@@ -1,0 +1,14 @@
+---
+- name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: GET RPKI SESSION DETAIL"
+  sros_command:
+    commands: show router origin-validation rpki-session detail
+  register: result
+
+- name: "ON ANSIBLE CONTROLLER: EXTRACT SESSION ID FROM RPKI SESSION DETAIL"
+  set_fact:
+    ovdb: "{{ result.stdout[0] | parse_cli(parser_schema) }}"
+  vars:
+    parser_schema: "{{ lookup('env', 'GANTRY_BIND_MOUNT_GUEST_DIR') }}/parser-vr-sros-rpki-session.yml"
+
+- debug:
+    msg: "RPKI session aka Routinator serial: {{ ovdb.sessions[0].session_id }}"

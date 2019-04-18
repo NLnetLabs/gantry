@@ -109,6 +109,9 @@ run_playbook() {
     ONLY_THIS_HOST="$2"
     shift 2
 
+    # support multiple playbook files by replacing commas with spaces
+    PLAYBOOK_PATH=${PLAYBOOK_PATH//,/ }
+
     EXTRA_ARGS=
     [ "${ONLY_THIS_HOST}" == "all" ] || EXTRA_ARGS="--limit=${ONLY_THIS_HOST}"
 
@@ -158,10 +161,8 @@ get_deployment_report() {
     [[ $# -ge 2 && "$1" == "--status" ]] && STATUS_NOT="$NOT" && STATUS_REGEX="$2"
 
     NUM_ARGS_MINUS_ONE=$(($# - 1))
-    if [ $# -ge 2 ]; then
-        shift ${NUM_ARGS_MINUS_ONE}
-        [ $1 == "--no-status" ] && NO_STATUS=1
-    fi
+    [ "${NUM_ARGS_MINUS_ONE}" -gt 0 ] && shift ${NUM_ARGS_MINUS_ONE}
+    [[ $# -ge 1 && $1 == "--no-status" ]] && NO_STATUS=1
 
     for PLAYBOOK_PATH in $(ls ${PLAYBOOKS_DIR}/playbook-*.yml | grep -E${COMPONENT_NOT} ${COMPONENT_REGEX}); do
         COMPONENT=$(basename ${PLAYBOOK_PATH} | sed -e 's/^playbook-//' -e 's/\.yml//')
@@ -274,36 +275,50 @@ NLnet Labs Gantry is a tool for deploying and testing network routers in the clo
 
 Usage: ${BASENAME} help|--help
 
-Router management commands:
-       ${BASENAME} deploy   routinator|<ROUTER TYPE> [--region <REGION:default=${DIGITAL_OCEAN_REGION}>] 
-       ${BASENAME} docker   routinator|<ROUTER TYPE> ..docker cli command..
-       ${BASENAME} exec     routinator ..routinator cli command..
-       ${BASENAME} ip       routinator|<ROUTER TYPE>
-       ${BASENAME} logs     routinator|<ROUTER TYPE> [--follow|--detailed]
-       ${BASENAME} ssh      routinator|<ROUTER TYPE> [--host]
+Component management commands:
+       ${BASENAME} deploy   <COMPONENT> [--region <REGION:default=${DIGITAL_OCEAN_REGION}>] 
+       ${BASENAME} docker   <COMPONENT> ..commands..
+       ${BASENAME} exec     <COMPONENT> ..commands..
+       ${BASENAME} ip       <COMPONENT>
+       ${BASENAME} logs     <COMPONENT> [--follow|--detailed]
+       ${BASENAME} ssh      <COMPONENT> [--host]
        ${BASENAME} status
-       ${BASENAME} undeploy routinator|<ROUTER TYPE>|all [--force]
+       ${BASENAME} undeploy <COMPONENT>|all [--force]
 
-Other commands:
+Docker registry commands:
        ${BASENAME} registry ls|deploy|publish
        ${BASENAME} registry rm <repo>/<image>:<tag>
+
+Test suite commands:
+       ${BASENAME} test     <COMPONENT>|all [<SINGLE_PLAYBOOK_YML_FILE_IN_DATA_DIR>]
 EOF
 
     check_is_docker_distribution && cat >&2 <<EOF
 
 Wrapper commands:
-       ${BASENAME} --data-dir <PATH/TO/YOUR/DATA/FILES:default=${GANTRY_BIND_MOUNT_HOST_DIR}>
        ${BASENAME} shell
        ${BASENAME} upgrade
+
+Wrapper options:
+       ${BASENAME} --data-dir <PATH/TO/YOUR/DATA/FILES:default=${GANTRY_BIND_MOUNT_HOST_DIR}>
 EOF
 
     cat >&2 <<EOF
 
-Where ROUTER TYPE can be one of:
+Where COMPONENT can be one of:
 EOF
 
     INDENT="       "
     FORMAT="%s%-20s %s\n"
+    printf "${FORMAT}" "${INDENT}" "COMPONENT" "VENDOR"
+    for REPORT_LINE in $(get_deployment_report --no-status); do
+        COMPONENT="$(echo ${REPORT_LINE} | cut -d '|' -f 1)"
+        VENDOR=$(get_playbook_specific_var "${PLAYBOOKS_DIR}/playbook-${COMPONENT}.yml" VENDOR)
+        if [ ! -z "${VENDOR}" ]; then
+            printf "${FORMAT}" "${INDENT}" "${COMPONENT}" "${VENDOR}"
+        fi
+    done
+}
 
 cleanup() {
     if [[ "${GANTRY_INSIDE_DOCKER}" -eq "1" && "$$" -eq 1 ]]; then
@@ -319,9 +334,9 @@ cleanup() {
                 echo -n >&2 "Waiting for all Gantry processes to finish: "
             else
                 echo -n .
-        fi
+            fi
             sleep 5s
-    done
+        done
     fi
 }
 
@@ -560,6 +575,30 @@ case "$MODE" in
                 abort_with_usage
                 ;;
         esac
+        ;;
+
+    test)
+        [ $# -lt 1 ] && abort_with_usage
+        COMPONENT="$1"; shift
+        PLAYBOOK_FILENAME=""
+        if [ $# -ge 1 ]; then
+            PLAYBOOK_FILENAME="$1"
+            PLAYBOOK_PATH="${GANTRY_BIND_MOUNT_GUEST_DIR}/${PLAYBOOK_FILENAME}"
+            [ ! -e "${PLAYBOOK_PATH}" ] && abort "Test suite playbook file '${GANTRY_BIND_MOUNT_HOST_DIR}/${PLAYBOOK_FILENAME}' not found."
+        else
+            PLAYBOOK_PATH="${GANTRY_BIND_MOUNT_GUEST_DIR}/test-*.yml"
+            # Replace spaces with commas - see run_playbook()
+            PLAYBOOK_PATH=${PLAYBOOK_PATH// /,}
+        fi
+
+        if [ "${COMPONENT}" == "all" ]; then
+            ONLY_THIS_HOST="all"
+        else
+            export_component_vars "${COMPONENT}"
+            ONLY_THIS_HOST="${DOCKER_MACHINE_NAME}"
+        fi
+
+        run_playbook ${PLAYBOOK_PATH} ${ONLY_THIS_HOST} $*
         ;;
 
     debug)

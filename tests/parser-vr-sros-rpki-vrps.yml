@@ -42,7 +42,7 @@
 # "ovdb": {
 #     "vrps": [
 #         {
-#             "asn": 13335,
+#             "asn": "AS13335",
 #             "prefix": "1.0.0.0/24",
 #             "maxLength": "24"
 #         },
@@ -50,11 +50,11 @@
 
 vars:
   vrp:
-    asn: "{{ item.origin_as }}"
+    asn: "AS{{ item.origin_as }}"
     prefix: "{{ item.prefix }}"
     maxLength: "{{ item.max_length }}"
 
 keys:
   vrps:
     value: "{{ vrp }}"
-    items: "^(?P<prefix>[0-9.]+\/[0-9]+)-(?P<max_length>[0-9]+)\\s\\[(?P<prefix_range_flags>[^]]+)\\]\\s+(?P<origin_as>\\d+)\\s+(?P<session_ip>[0-9.]+)\\s\\[(?P<session_ip_flags>[^]])\\]"
+    items: "^(?P<prefix>[0-9a-f.:/]+\/[0-9]+)-(?P<max_length>[0-9]+)\\s\\[(?P<prefix_range_flags>[^]]+)\\]\\s+(?P<origin_as>\\d+)\\s+(?P<session_ip>[0-9a-f.:/]+)\\s\\[(?P<session_ip_flags>[^]])\\]"
