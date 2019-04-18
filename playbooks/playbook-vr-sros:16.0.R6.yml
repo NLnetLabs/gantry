@@ -1,5 +1,5 @@
 ---
-# ROUTER_SERIES=Nokia/Alcatel SROS
+# VENDOR=Nokia/Alcatel SROS
 # DROPLET_SIZE=s-4vcpu-8gb
 - hosts: routers
   vars:

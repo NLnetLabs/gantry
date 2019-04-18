@@ -1,5 +1,5 @@
 ---
-# ROUTER_SERIES=Juniper vMX
+# VENDOR=Juniper vMX
 # DROPLET_SIZE=s-4vcpu-8gb
 - hosts: routers
   vars:

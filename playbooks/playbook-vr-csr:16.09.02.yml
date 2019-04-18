@@ -1,5 +1,5 @@
 ---
-# ROUTER_SERIES=Cisco CSR1000v
+# VENDOR=Cisco CSR1000v
 # DROPLET_SIZE=s-4vcpu-8gb
 - hosts: routers
   vars:
