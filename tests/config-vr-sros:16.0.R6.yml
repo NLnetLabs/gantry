@@ -1,0 +1,18 @@
+---
+- block:
+  - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: SHOW RPKI DATABASE SUMMARY"
+    sros_command:
+      commands: show router origin-validation database summary
+    register: result
+
+  - debug: var=result.stdout_lines
+
+  - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: SHOW RPKI SESSION DETAIL"
+    sros_command:
+      commands: show router origin-validation rpki-session detail
+    register: result
+
+  - debug: var=result.stdout[0]
+
+  when: hostvars[inventory_hostname].dm_tags.find('gantry_component:vr-sros') != -1 and
+        hostvars[inventory_hostname].dm_tags.find('gantry_component_version:16-0-R6') != -1
