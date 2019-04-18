@@ -23,8 +23,7 @@ export ANSIBLE_GATHERING=explicit
 export ANSIBLE_RETRY_FILES_ENABLED=no
 
 # Enable Ansible task profiling (causes Ansible to show how long tasks take)
-export ANSIBLE_CALLBACK_WHITELIST=profile_tasks,junit
-export JUNIT_OUTPUT_DIR=${GANTRY_BIND_MOUNT_GUEST_DIR-/tmp}/junit
+export ANSIBLE_CALLBACK_WHITELIST=profile_tasks
 
 SELF="$0"
 BASEDIR=$(dirname $0)
@@ -297,7 +296,6 @@ Docker registry commands:
 
 Test suite commands:
        ${BASENAME} test     <COMPONENT>|all [<SINGLE_PLAYBOOK_YML_FILE_IN_DATA_DIR>]
-       ${BASENAME} test     generate-report
 EOF
 
     check_is_docker_distribution && cat >&2 <<EOF
@@ -584,41 +582,25 @@ case "$MODE" in
     test)
         [ $# -lt 1 ] && abort_with_usage
         COMPONENT="$1"; shift
-
-        if [ "${COMPONENT}" == "generate-report" ]; then
-            mkdir -p ${JUNIT_OUTPUT_DIR}/report
-            /opt/allure/bin/allure generate ${JUNIT_OUTPUT_DIR} -o ${JUNIT_OUTPUT_DIR}/report
-        elif [ "${COMPONENT}" == "upload-report" ]; then
-            # assumes that AWS_ACCESS_KEY and AWS_SECRET_KEY have been set
-            REGION="$1"
-            BUCKET_AND_PATH="$2"
-            /opt/s3cmd/s3cmd put \
-                --recursive \
-                --host=${REGION}.digitaloceanspaces.com \
-                --host-bucket='%(bucket)s.'${REGION}'.digitaloceanspaces.com' \
-                --acl-public \
-                ${JUNIT_OUTPUT_DIR}/report/* s3://${BUCKET_AND_PATH}
+        PLAYBOOK_FILENAME=""
+        if [ $# -ge 1 ]; then
+            PLAYBOOK_FILENAME="$1"
+            PLAYBOOK_PATH="${GANTRY_BIND_MOUNT_GUEST_DIR}/${PLAYBOOK_FILENAME}"
+            [ ! -e "${PLAYBOOK_PATH}" ] && abort "Test suite playbook file '${GANTRY_BIND_MOUNT_HOST_DIR}/${PLAYBOOK_FILENAME}' not found."
         else
-            PLAYBOOK_FILENAME=""
-            if [ $# -ge 1 ]; then
-                PLAYBOOK_FILENAME="$1"
-                PLAYBOOK_PATH="${GANTRY_BIND_MOUNT_GUEST_DIR}/${PLAYBOOK_FILENAME}"
-                [ ! -e "${PLAYBOOK_PATH}" ] && abort "Test suite playbook file '${GANTRY_BIND_MOUNT_HOST_DIR}/${PLAYBOOK_FILENAME}' not found."
-            else
-                PLAYBOOK_PATH="${GANTRY_BIND_MOUNT_GUEST_DIR}/test-*.yml"
-                # Replace spaces with commas - see run_playbook()
-                PLAYBOOK_PATH=${PLAYBOOK_PATH// /,}
-            fi
-
-            if [ "${COMPONENT}" == "all" ]; then
-                ONLY_THIS_HOST="all"
-            else
-                export_component_vars "${COMPONENT}"
-                ONLY_THIS_HOST="${DOCKER_MACHINE_NAME}"
-            fi
-
-            run_playbook ${PLAYBOOK_PATH} ${ONLY_THIS_HOST} $*
+            PLAYBOOK_PATH="${GANTRY_BIND_MOUNT_GUEST_DIR}/test-*.yml"
+            # Replace spaces with commas - see run_playbook()
+            PLAYBOOK_PATH=${PLAYBOOK_PATH// /,}
         fi
+
+        if [ "${COMPONENT}" == "all" ]; then
+            ONLY_THIS_HOST="all"
+        else
+            export_component_vars "${COMPONENT}"
+            ONLY_THIS_HOST="${DOCKER_MACHINE_NAME}"
+        fi
+
+        run_playbook ${PLAYBOOK_PATH} ${ONLY_THIS_HOST} $*
         ;;
 
     debug)

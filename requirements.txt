@@ -1,4 +1,3 @@
 ansible
 docker
 jmespath
-junit_xml
