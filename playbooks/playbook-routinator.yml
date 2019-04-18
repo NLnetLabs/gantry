@@ -1,3 +1,4 @@
+# VENDOR=NLnet Labs
 # DROPLET_SIZE=s-1vcpu-1gb
 - any_errors_fatal: yes
   hosts: rpkicaches
@@ -58,7 +59,7 @@
         port: "{{ routinator_port }}"
         state: started         # Port should be open
         delay: 0               # No wait before first check (sec)
-        timeout: 300           # Stop checking after timeout (sec)
+        timeout: 600           # Stop checking after timeout (sec)
     connection: local
     environment:
       DOCKER_CERT_PATH: "{{ hostvars['routinator'].dm_DOCKER_CERT_PATH }}"
