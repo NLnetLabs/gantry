@@ -9,4 +9,7 @@ before_install:
 script:
 - "mkdir /tmp/gantry"
 - "cp tests/* /tmp/gantry"
+- "./gantry deploy routinator"
+- "./gantry deploy vr-sros:16.0.R6"
 - "./gantry test all"
+- "./gantry undeploy all --force"
