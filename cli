@@ -207,6 +207,9 @@ print_status() {
 }
 
 undeploy_all() {
+    FORCE=0
+    [[ $# -ge 1 && "$1" == "--force" ]] && FORCE=1
+
     OLDIFS=$IFS; IFS=$'\n'
     UNDEPLOY_COMPONENTS=""
     for REPORT_LINE in $(get_deployment_report); do
@@ -216,9 +219,11 @@ undeploy_all() {
     done
     IFS=${OLDIFS}
 
-    NUM_COMPONENTS_TO_UNDEPLOY=$(echo ${UNDEPLOY_COMPONENTS} | wc -w)
-    my_log "You are about to undeploy ${NUM_COMPONENTS_TO_UNDEPLOY} components"
-    check_proceed || return
+    if [ ${FORCE} -eq 0 ]; then
+        NUM_COMPONENTS_TO_UNDEPLOY=$(echo ${UNDEPLOY_COMPONENTS} | wc -w)
+        my_log "You are about to undeploy ${NUM_COMPONENTS_TO_UNDEPLOY} components"
+        check_proceed || return
+    fi
 
     for COMPONENT in ${UNDEPLOY_COMPONENTS}; do
         ${SELF} undeploy ${COMPONENT} --force
@@ -365,11 +370,8 @@ case "$MODE" in
             case $COMPONENT in
                 all)
                     ${SELF} status
-                    undeploy_all
+                    undeploy_all $*
                     exit 0
-                    ;;
-
-                routinator)
                     ;;
 
                 *)
