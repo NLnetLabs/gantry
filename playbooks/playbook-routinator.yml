@@ -36,7 +36,7 @@
           refresh = 60
 
   - block:
-    - name: "ON ANSIBLE CONTROLLER: Run the Routinator using docker-compose up locally but connecting to the Docker daemon on the Routinator host"
+    - name: "ON ANSIBLE CONTROLLER: Run the Routinator Docker container on the Routinator host Docker daemon"
       register: result
       docker_container:
         name: routinator
