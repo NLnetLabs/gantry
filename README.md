@@ -52,36 +52,16 @@ ok: [134.209.202.139 ] => {
     ]
 }
 ```
-## Running your own tests
-The mechanism for running your own Ansible based tests is a work-in-progress, but for example you can already do:
 
-_note: the data directory is a location on your machine, in this case a subdirectory of the git clone dir_
+## Configuring and testing with data directory Ansible fragments
 
-```
-$ ./gantry --data-dir tests deploy vr-sros:16.0.R6
-...
-TASK [Include user defined tasks] ************************************************************
-included: /tmp/gantry/tasks-vr-sros:16.0.R6.yml for vr-sros-16.0.R6
+Gantry can execute Ansible based router post-deployment configuration steps, and optional test suites,  using Ansible fragments that you supply in the Gantry data directory.
 
-TASK [ON ROUTER vr-sros-16.0.R6 @ 134.209.202.139 : SHOW RPKI DATABASE] **********************
-ok: [134.209.202.139 ]
+Test execution takes place inside the Gantry Docker container and so only Ansible playbooks accessible to the container via the Gantry data directory can be executed. By default the host directory `/tmp/gantry` is mapped into the container. You can override this location using the `--data-dir <path>` command line option.
 
-TASK [debug] *********************************************************************************
-ok: [134.209.202.139 ] => {
-    "result.stdout_lines": [
-        [
-            "===============================================================================",
-            "Static and Dynamic VRP Database Summary",
-            "===============================================================================",
-            "Type                                    IPv4 Routes         IPv6 Routes",
-            "-------------------------------------------------------------------------------",
-            "134.209.198.136-B                       10641               1944",
-            "Static                                  0                   0",
-            "==============================================================================="
-        ]
-    ]
-}
-```
+- Any `config-*.yml` files in the Gantry data directory will be included as task sets to be executed post deployment.
+- All `test-*.yml` files will be executed by `./gantry test all`.
+- Individual playbooks in the Gantry data directory can be executed using `./gantry test <filename>`, .e.g `./gantry test test-compare-vrps`.
 
 ## Upgrading
 
@@ -130,33 +110,39 @@ NLnet Labs Gantry is a tool for deploying and testing network routers in the clo
 
 Usage: gantry help|--help
 
-Router management commands:
-       gantry deploy   routinator|<ROUTER TYPE> [--region <REGION:default=ams3>] 
-       gantry docker   routinator|<ROUTER TYPE> ..docker cli command..
-       gantry exec     routinator ..routinator cli command..
-       gantry ip       routinator|<ROUTER TYPE>
-       gantry logs     routinator|<ROUTER TYPE> [--follow|--detailed]
-       gantry ssh      routinator|<ROUTER TYPE> [--host]
+Component management commands:
+       gantry deploy   <COMPONENT> [--region <REGION:default=ams3>] 
+       gantry docker   <COMPONENT> ..commands..
+       gantry exec     <COMPONENT> ..commands..
+       gantry ip       <COMPONENT>
+       gantry logs     <COMPONENT> [--follow|--detailed]
+       gantry ssh      <COMPONENT> [--host]
        gantry status
-       gantry undeploy routinator|<ROUTER TYPE>|all [--force]
+       gantry undeploy <COMPONENT>|all [--force]
 
-Other commands:
+Docker registry commands:
        gantry registry ls|deploy|publish
        gantry registry rm <repo>/<image>:<tag>
 
+Test suite commands:
+       gantry test     <COMPONENT>|all [<SINGLE_PLAYBOOK_YML_FILE_IN_DATA_DIR>]
+
 Wrapper commands:
-       gantry --data-dir <PATH/TO/YOUR/DATA/FILES:default=/tmp/gantry>
        gantry shell
        gantry upgrade
 
-Where ROUTER TYPE can be one of:
-       ROUTER TYPE          ROUTER SERIES
+Wrapper options:
+       gantry --data-dir <PATH/TO/YOUR/DATA/FILES:default=/tmp/gantry>
+
+Where COMPONENT can be one of:
+       COMPONENT            VENDOR
+       routinator           NLnet Labs
        vr-csr:16.09.02      Cisco CSR1000v
        vr-sros:16.0.R6      Nokia/Alcatel SROS
        vr-vmx:18.2R1.9      Juniper vMX
 ```
 
-_Note: The list of ROUTER TYPEs shown is the set for which specific playbooks exist in the `playbooks/` directory. You will need the appropriate virtual router image published in your Docker registry in order to actually deploy one of these routers._
+_Note: The list of COMPONENTs shown is the set for which specific playbooks exist in the `playbooks/` directory. You will need the appropriate virtual router image published in your Docker registry in order to actually deploy one of these routers._
 
 ## Hacking
 
