@@ -1,0 +1,80 @@
+From 63bfcb7332166df0d729d720de7b808896b8df90 Mon Sep 17 00:00:00 2001
+From: Ganesh B Nalawade <ganesh634@gmail.com>
+Date: Fri, 18 Jan 2019 13:48:03 +0530
+Subject: [PATCH] Fix connect_timeout config varaible in netconf connection
+
+*  Fetch connect_timeout value from get_options()
+   instead of play_context
+---
+ lib/ansible/plugins/connection/netconf.py | 2 +-
+ lib/ansible/plugins/netconf/ce.py         | 2 +-
+ lib/ansible/plugins/netconf/iosxr.py      | 2 +-
+ lib/ansible/plugins/netconf/junos.py      | 2 +-
+ lib/ansible/plugins/netconf/sros.py       | 2 +-
+ 5 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/lib/ansible/plugins/connection/netconf.py b/lib/ansible/plugins/connection/netconf.py
+index 1b4b78354992..046415dd2d10 100644
+--- a/lib/ansible/plugins/connection/netconf.py
++++ b/lib/ansible/plugins/connection/netconf.py
+@@ -314,7 +314,7 @@ def _connect(self):
+                 look_for_keys=self.get_option('look_for_keys'),
+                 device_params=device_params,
+                 allow_agent=self._play_context.allow_agent,
+-                timeout=self._play_context.timeout,
++                timeout=self.get_option('persistent_connect_timeout'),
+                 ssh_config=ssh_config
+             )
+         except SSHUnknownHostError as exc:
+diff --git a/lib/ansible/plugins/netconf/ce.py b/lib/ansible/plugins/netconf/ce.py
+index 1191811aba45..ef41b54994c4 100644
+--- a/lib/ansible/plugins/netconf/ce.py
++++ b/lib/ansible/plugins/netconf/ce.py
+@@ -107,7 +107,7 @@ def guess_network_os(obj):
+                 hostkey_verify=obj.get_option('host_key_checking'),
+                 look_for_keys=obj.get_option('look_for_keys'),
+                 allow_agent=obj._play_context.allow_agent,
+-                timeout=obj._play_context.timeout
++                timeout=obj.get_option('persistent_connect_timeout')
+             )
+         except SSHUnknownHostError as exc:
+             raise AnsibleConnectionFailure(to_native(exc))
+diff --git a/lib/ansible/plugins/netconf/iosxr.py b/lib/ansible/plugins/netconf/iosxr.py
+index 8e641aa4a29e..d80f0dbeeafb 100644
+--- a/lib/ansible/plugins/netconf/iosxr.py
++++ b/lib/ansible/plugins/netconf/iosxr.py
+@@ -109,7 +109,7 @@ def guess_network_os(obj):
+                 hostkey_verify=obj.get_option('host_key_checking'),
+                 look_for_keys=obj.get_option('look_for_keys'),
+                 allow_agent=obj._play_context.allow_agent,
+-                timeout=obj._play_context.timeout
++                timeout=obj.get_option('persistent_connect_timeout')
+             )
+         except SSHUnknownHostError as exc:
+             raise AnsibleConnectionFailure(to_native(exc))
+diff --git a/lib/ansible/plugins/netconf/junos.py b/lib/ansible/plugins/netconf/junos.py
+index f0b2a266d6d6..55ca60fb9957 100644
+--- a/lib/ansible/plugins/netconf/junos.py
++++ b/lib/ansible/plugins/netconf/junos.py
+@@ -117,7 +117,7 @@ def guess_network_os(obj):
+                 hostkey_verify=obj.get_option('host_key_checking'),
+                 look_for_keys=obj.get_option('look_for_keys'),
+                 allow_agent=obj._play_context.allow_agent,
+-                timeout=obj._play_context.timeout
++                timeout=obj.get_option('persistent_connect_timeout')
+             )
+         except SSHUnknownHostError as exc:
+             raise AnsibleConnectionFailure(to_native(exc))
+diff --git a/lib/ansible/plugins/netconf/sros.py b/lib/ansible/plugins/netconf/sros.py
+index 910b92e2d6ee..c4504ca398c2 100644
+--- a/lib/ansible/plugins/netconf/sros.py
++++ b/lib/ansible/plugins/netconf/sros.py
+@@ -86,7 +86,7 @@ def guess_network_os(obj):
+                 hostkey_verify=obj.get_option('host_key_checking'),
+                 look_for_keys=obj.get_option('look_for_keys'),
+                 allow_agent=obj._play_context.allow_agent,
+-                timeout=obj._play_context.timeout
++                timeout=obj.get_option('persistent_connect_timeout')
+             )
+         except SSHUnknownHostError as exc:
+             raise AnsibleConnectionFailure(to_native(exc))

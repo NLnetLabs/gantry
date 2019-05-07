@@ -70,6 +70,10 @@ RUN ln -s /usr/bin/python3 /usr/bin/python
 WORKDIR /opt/nlnetlabs/gantry/vrnetlab
 RUN patch -p0 < /opt/nlnetlabs/gantry/vrnetlab.patch
 
+# Patch Ansible 2.7.10 with fix #51055 (see: https://github.com/ansible/ansible/pull/51055)
+WORKDIR /usr/local/lib/python3.6/dist-packages/ansible
+RUN patch -p3 < /opt/nlnetlabs/gantry/ansible-51055.patch
+
 # Final touches
 WORKDIR /opt/nlnetlabs/gantry
 VOLUME /root/.docker/machine
