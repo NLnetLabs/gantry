@@ -8,47 +8,44 @@
     DOCKER_MACHINE_NAME: "{{ hostvars['routinator'].dm_DOCKER_MACHINE_NAME }}"
     DOCKER_TLS_VERIFY: "{{ hostvars['routinator'].dm_DOCKER_TLS_VERIFY }}"
   tasks:
-  - name: "ON ANSIBLE CONTROLLER: FETCH ROUTINATOR LOG FROM {{ inventory_hostname }} @ {{ ansible_host }}"
+  - name: "FETCH ROUTINATOR LOG"
     command: docker logs routinator
     register: result
+    changed_when: false
 
-  - name: "ON ANSIBLE CONTROLLER: FIND MOST RECENT SERIAL NUMBER IN ROUTINATOR LOG"
+  - name: "FIND MOST RECENT SERIAL NUMBER IN ROUTINATOR LOG"
     set_fact:
       routinator_serial: "{{ result.stderr_lines | select('match', '^New serial is ([0-9]+)') | list | last | regex_search('([0-9]+)', '\\1') | first }}"
 
-  - debug: var=routinator_serial
+  - name: "SHOW FOUND ROUTINATOR SERIAL NUMBER"
+    debug: var=routinator_serial
 
   # TODO: Use tempfile.
-  - name: "ON ANSIBLE CONTROLLER: FETCH FULL ROUTINATOR VRP DATABASE FROM {{ inventory_hostname }} @ {{ ansible_host }}"
+  - name: "FETCH FULL ROUTINATOR VRP DATABASE"
     get_url:
       url: "http://{{ hostvars['routinator'].ansible_host }}:9556/json"
       dest: /tmp/routinator.json
 
-  - name: "ON ANSIBLE CONTROLLER: PARSE, TRANSFORM AND SORT ROUTINATOR VRPS"
+  - name: "PARSE, TRANSFORM AND SORT ROUTINATOR VRPS"
     set_fact:
       routinator_vrps: "{{ lookup('file', '/tmp/routinator.json') | from_json | json_query(qry) }}"
     vars:
       qry: "roas[].join('|', [asn, prefix, to_string(maxLength)]) | sort(@)"
 
   # Example output: "Transformed 81560 Routinator VRPs into format ['AS0|103.209.125.0/24|24', 'AS0|103.209.127.0/24|24', 'AS0|103.237.95.0/24|24']..."
-  - debug:
+  - name: "SHOW COUNT OF ROUTINATOR VRPS PROCESSED"
+    debug:
       msg: "Transformed {{ routinator_vrps | length }} Routinator VRPs into format {{ routinator_vrps[0:3] }}..."
 
 - hosts: routers
   tasks:
   - block:
-    - name: "ON ANSIBLE CONTROLLER: FETCH ROUTER RPKI DATABASE SUMMARY FROM {{ inventory_hostname }} @ {{ ansible_host }}"
-      sros_command:
-        commands: show router origin-validation database summary
-      register: result
-
-    - debug: var=result.stdout_lines
-  
-    - name: "ON ANSIBLE CONTROLLER: WAIT FOR ROUTER {{ inventory_hostname }} @ {{ ansible_host }} TO HAVE ORIGIN VALIDATION SESSION ID {{ routinator_serial }}.."
+    - name: "WAIT FOR ROUTER TO HAVE ORIGIN VALIDATION SESSION ID {{ routinator_serial }}.."
       include_tasks: tasks-get-session-id.yml
       until: ovdb.sessions[0].session_id == routinator_serial
       retries: 60
       delay: 10
+      failed_when: ovdb.sessions[0].session_id != routinator_serial
 
     # Fetch the origin-validation Validated ROA Payload (VRP) database and transform the VRPs
     # into Routinator-like JSON structure ({ asn, prefix, maxLength }).
@@ -75,7 +72,7 @@
 
     # TODO: eliminate hard-coded /tmp/gantry reference
     # TODO: this is SLOW, can we speed it up?
-    - name: "ON ANSIBLE CONTROLLER: PARSE, TRANSFORM AND SORT ROUTER VRPS"
+    - name: "PARSE, TRANSFORM AND SORT ROUTER VRPS"
       set_fact:
         router_vrps: "{{ result.stdout[1] | parse_cli(parser_schema) | json_query(qry) }}"
       vars:
@@ -83,7 +80,8 @@
         qry: "vrps[].join('|', [asn, prefix, to_string(maxLength)]) | sort(@)"
 
     # Example output: "Transformed 81577 router VRPs into format ['AS0|103.209.125.0/24|24', 'AS0|103.209.127.0/24|24', 'AS0|103.237.95.0/24|24']...
-    - debug:
+    - name: "SHOW COUNT OF ROUTER VRPS PROCESSED"
+      debug:
         msg: "Transformed {{ router_vrps | length }} router VRPs into format {{ router_vrps[0:3] }}..."
 
     # Unusably slow...
@@ -91,42 +89,55 @@
     #     msg: "Symmetric Difference: {{ routinator_vrps | symmetric_difference(router_vrps) }}"
     # Instead do the block below:
     - block:
-      - name: "ON ANSIBLE CONTROLLER: GENERATE TEMPORARY FILE NAMES FOR VRP DIFF"
+      - name: "GENERATE TEMPORARY FILE NAMES FOR VRP DIFF"
         tempfile:
         with_items:
           - routinator_vrps
           - router_vrps
-        register: results
+        register: result
 
-      - set_fact:
-          tmpfiles: "{{ results.results }}"
+      - name: "UNPACK TEMP FILE NAME GENERATION RESULT"
+        set_fact:
+          tmpfiles: "{{ result.results }}"
 
-      - name: "ON ANSIBLE CONTROLLER: WRITE VRPS TO TEMPORARY FILES FOR DIFF"
+      - name: "WRITE VRPS TO TEMPORARY FILES FOR DIFF"
         copy:
           content: "{{ lookup('vars', item.item) | join('\n') }}"
           dest: "{{ item.path }}"
         with_items: "{{ tmpfiles }}"
 
-      - name: "ON ANSIBLE CONTROLLER: DIFF VRP TEMPORARY FILES"
+      - name: "CAPTURE FIRST FEW LINES OF FILES TO BE DIFFED"
+        command: "head -n 3 {{ tmpfiles[0].path }} {{ tmpfiles[1].path }}"
+        register: result
+
+      - name: "SHOW FIRST FEW LINES OF FILES TO BE DIFFED"
+        debug: var=result.stdout_lines
+
+      - name: "DIFF VRP TEMPORARY FILES"
         command: "diff {{ tmpfiles[0].path }} {{ tmpfiles[1].path }}"
-        register: results
-        failed_when: results.rc < 0 or results.rc > 1
+        register: result
+        failed_when: result.rc < 0 or result.rc > 1
         no_log: yes
 
-      - name: "ON ANSIBLE CONTROLLER: VRP DIFF RESULT"
-        debug: var=results.stdout_lines
+      - name: "SHOW RAW VRP DIFF RESULT"
+        debug: var=result.stdout_lines
 
-      - name: "ON ANSIBLE CONTROLLER: ANALYZE VRP DIFF RESULT"
+      - name: "SHOW VRP DB DIFFERENCES"
         fail:
           msg: "Routinator and router VRP sets for serial '{{ routinator_serial }}' differ: extra/missing/total VRPs: {{ num_extra }}/{{ num_missing }}/{{ total_vrps }}"
-        when: results.rc != 0
+        when: result.rc != 0
         vars:
-          num_extra: "{{ results.stdout | regex_findall('>') | length }}"
-          num_missing: "{{ results.stdout | regex_findall('<') | length }}"
+          num_extra: "{{ result.stdout | regex_findall('>') | length }}"
+          num_missing: "{{ result.stdout | regex_findall('<') | length }}"
           total_vrps: "{{ routinator_vrps | length }}"
 
+      - name: "SHOW VRP DB EQUALITY SUMMARY"
+        debug:
+          msg: "For Routinator serial {{ routinator_serial }} the {{ router_vrps | length }} router VRPs are the same as the {{ routinator_vrps | length }} Routinator VRPs"
+        when: result.rc == 0
+
       always:
-        - name: "ON ANSIBLE CONTROLLER: DELETE TEMPORARY VRP DIFF FILES"
+        - name: "DELETE TEMPORARY VRP DIFF FILES"
           file:
             state: absent
             path: "{{ item.path }}"

@@ -1,38 +1,39 @@
 ---
 - block:
-  - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: Install Python for Ansible"
+  - name: "INSTALL PYTHON FOR ANSIBLE"
     raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
     register: result
     changed_when: result.stdout != ""
 
-  - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: Install Socat"
+  - name: "INSTALL SOCAT"
     raw: test -e /usr/bin/socat || (apt -y update && apt install -y socat)
     register: result
     changed_when: result.stdout != ""
 
-  - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: Check if socat has port {{router_port_external}} open"
+  - name: "CHECK IF SOCAT HAS PORT {{ router_port_external }} OPEN"
     shell: "ss -tp state listening sport = :{{ router_port_external }} | grep socat"
     register: result
     ignore_errors: yes
 
-  - debug:
+  - name: "SHOW THAT SOCAT IS ALREADY RUNNING"
+    debug:
       msg: "Socat is already forwarding from port {{router_port_external}} so no need to run it again"
     when: result is succeeded
 
-  - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: Forward port {{ router_port_internal }} to port {{ router_port_external }}"
+  - name: "FORWARD PORT {{ router_port_internal }} TO PORT {{ router_port_external }}"
     shell: "cd /tmp; nohup socat TCP-LISTEN:{{ router_port_external }},fork TCP:127.0.0.1:{{ router_port_internal }}"
     async: 2592000 # keep the background process running for at most a month!
     poll: 0
     when: result is failed
 
 - block:
-  - name: "ON ANSIBLE CONTROLLER: Private Docker registry login ({{ registry_user }}@{{ registry_fqdn }})"
+  - name: "PRIVATE DOCKER REGISTRY LOGIN ({{ registry_user }}@{{ registry_fqdn }})"
     docker_login:
       registry: "{{ registry_fqdn }}"
       username: "{{ registry_user }}"
       password: "{{ registry_pass }}"
 
-  - name: "ON ANSIBLE CONTROLLER: Run the router docker container in the Docker daemon on the router host"
+  - name: "RUN THE ROUTER DOCKER CONTAINER IN THE DOCKER DAEMON ON THE ROUTER HOST"
     docker_container:
       name: router
       image: "{{ registry_fqdn }}/{{ registry_repo }}/{{ component_name }}:{{ component_version }}"
@@ -40,12 +41,12 @@
       privileged: true
       command: "--username {{ router_user }} --password {{ router_pass }} --trace"
 
-  - name: "ON ANSIBLE CONTROLLER: Private Docker registry logout"
+  - name: "PRIVATE DOCKER REGISTRY LOGOUT"
     docker_login:
       registry: "{{ registry_fqdn }}"
       state: absent          # logout
 
-  - name: "ON ANSIBLE CONTROLLER: Wait for router Docker container to become healthy"
+  - name: "WAIT FOR ROUTER DOCKER CONTAINER TO BECOME HEALTHY"
     command: docker ps
     register: result
     until: result.stdout_lines[1] | regex_search('\(healthy\)')

@@ -13,11 +13,11 @@
   # and Paramiko SSH seems to read known_hosts files BEFORE the Ansible playbook is executed, so we can't write logic in
   # this playbook to change the Paramiko behaviour or to supply the missing host key.
   - block:
-    - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: ENABLE PORT 1/1/1 (user: {{ router_user }}, pass: {{ router_pass }}, port: {{ router_port_external }}"
+    - name: "ENABLE PORT 1/1/1 (user: {{ router_user }}, pass: {{ router_pass }}, port: {{ router_port_external }})"
       sros_config:
         lines: "configure port 1/1/1 no shutdown"
     
-    - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: ENABLE ROUTER OUTBOUND CONNECTIVITY VIA PORT 1/1/1"
+    - name: "ENABLE ROUTER OUTBOUND CONNECTIVITY VIA PORT 1/1/1"
       sros_config:
         lines:
           - "configure router interface \"out\" port 1/1/1"
@@ -25,24 +25,23 @@
           - "configure router interface \"out\" ip-helper-address 192.168.76.2"
           - "configure router \"Base\" static-route-entry 0.0.0.0/0 next-hop 192.168.76.2 no shutdown"
 
-    - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: ENABLE RPKI ORIGIN VALIDATION VIA ROUTINATOR @ {{ routinator_ip }}:{{ routinator_port }}"
+    - name: "ENABLE RPKI ORIGIN VALIDATION VIA ROUTINATOR @ {{ routinator_ip }}:{{ routinator_port }}"
       sros_config:
         lines:
           - "configure router \"Base\" origin-validation rpki-session {{ routinator_ip }} port {{ routinator_port }}"
           - "configure router \"Base\" origin-validation rpki-session {{ routinator_ip }} no shutdown"
 
-    - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: WAIT FOR CONNECTION ESTABLISHED TO THE ROUTINATOR"
+    - name: "WAIT FOR CONNECTION ESTABLISHED TO THE ROUTINATOR"
       sros_command:
         commands: show router origin-validation rpki-session
         wait_for: result[0] contains established
       register: result
 
-    - debug: var=result.stdout_lines
+    - name: ""
+      debug: var=result.stdout_lines
 
-    - name: Include post tasks common to all routers
-      include_tasks: tasks-router-common-post.yml
-
-    when: hostvars[inventory_hostname].dm_tags.find(component_name) != -1
+    when: hostvars[inventory_hostname].dm_tags.find('gantry_component:vr-sros') != -1
+    # TO DO: use connection: network_cli or connection: netconf instead
     connection: local
     vars:
       router_ip: "{{ ansible_host }}"
@@ -57,3 +56,6 @@
         provider: "{{ provider }}"
       sros_command:
         provider: "{{ provider }}"
+
+  - name: Include post tasks common to all routers
+    include_tasks: tasks-router-common-post.yml

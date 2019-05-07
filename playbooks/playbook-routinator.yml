@@ -4,28 +4,28 @@
   hosts: rpkicaches
   tasks:
   - block:
-    - name: "ON RPKICACHE {{ inventory_hostname }} @ {{ ansible_host }}: Install Python for Ansible"
+    - name: "INSTALL PYTHON FOR ANSIBLE"
       raw: test -e /usr/bin/python || (apt -y update && apt install -y python-minimal)
       register: result
       changed_when: result.stdout != ""
 
-    - name: "ON RPKICACHE {{ inventory_hostname }} @ {{ ansible_host }}: Create the tals directory"
+    - name: "CREATE THE TALS DIRECTORY"
       file:
         path: /etc/routinator/tals
         state: directory
 
-    - name: "ON RPKICACHE {{ inventory_hostname }} @ {{ ansible_host }}: Download the tal file"
+    - name: "DOWNLOAD THE TAL FILE"
       get_url:
         url: https://www.arin.net/resources/manage/rpki/arin-rfc7730.tal
         dest: /etc/routinator/tals/arin-rfc7730.tal
 
-    - name: "ON RPKICACHE {{ inventory_hostname }} @ {{ ansible_host }}: Check tal file exists"
+    - name: "CHECK TAL FILE EXISTS"
       stat:
         path: /etc/routinator/tals/arin-rfc7730.tal
       register: result
       failed_when: result.stat.exists == False
 
-    - name: "ON RPKICACHE {{ inventory_hostname }} @ {{ ansible_host }}: Create Routinator config file"
+    - name: "CREATE ROUTINATOR CONFIG FILE"
       copy:
         dest: /root/.routinator.conf
         content: |
@@ -37,7 +37,7 @@
           refresh = 60
 
   - block:
-    - name: "ON ANSIBLE CONTROLLER: Run the Routinator Docker container on the Routinator host Docker daemon"
+    - name: "RUN THE ROUTINATOR DOCKER CONTAINER ON THE ROUTINATOR HOST DOCKER DAEMON"
       register: result
       docker_container:
         name: routinator
@@ -50,10 +50,10 @@
           - /etc/routinator/tals/arin-rfc7730.tal:/root/.rpki-cache/tals/arin.tal
           - /root/.routinator.conf:/root/.routinator.conf
 
-    - name: "ON ANSIBLE CONTROLLER: Check that the Routinator is deployed"
+    - name: "CHECK THAT THE ROUTINATOR IS DEPLOYED"
       assert: { that: "result.ansible_facts.docker_container.State.Running" }
 
-    - name: "ON ANSIBLE CONTROLLER: Wait for Routinator to start listening for connections"
+    - name: "WAIT FOR ROUTINATOR TO START LISTENING FOR CONNECTIONS"
       wait_for:
         host: "{{ hostvars['routinator'].ansible_host }}"
         port: "{{ routinator_port }}"

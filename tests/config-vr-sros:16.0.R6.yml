@@ -1,13 +1,13 @@
 ---
 - block:
-  - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: SHOW RPKI DATABASE SUMMARY"
+  - name: "SHOW RPKI DATABASE SUMMARY"
     sros_command:
       commands: show router origin-validation database summary
     register: result
 
   - debug: var=result.stdout_lines
 
-  - name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: SHOW RPKI SESSION DETAIL"
+  - name: "SHOW RPKI SESSION DETAIL"
     sros_command:
       commands: show router origin-validation rpki-session detail
     register: result
