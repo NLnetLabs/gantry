@@ -83,7 +83,9 @@ create-machine() {
     TAGS="$(echo $TAGS | tr '.' '-' | tr -c -d 'a-zA-Z0-9:_,-')"
 
     my_log "Checking if a Docker Machine with name ${MACHINE_NAME} already exists.."
-    docker-machine ip ${MACHINE_NAME} &>/dev/null || {
+    if docker-machine ip ${MACHINE_NAME} &>/dev/null; then
+        my_log "Docker Machine ${MACHINE_NAME} found."
+    else
         my_log "Creating a new Digital Ocean Droplet with Docker Machine (region: ${REGION}, image: ${DIGITAL_OCEAN_BASE_OS_SLUG}, size: ${MACHINE_SIZE}).."
         docker-machine create \
         --driver digitalocean \
@@ -94,6 +96,7 @@ create-machine() {
         --digitalocean-tags ${TAGS} \
         ${MACHINE_NAME}
         my_log "Docker Machine creation complete."
+    fi
     }
 
 destroy_machine() {
