@@ -95,13 +95,10 @@ create-machine() {
         ${MACHINE_NAME}
         my_log "Docker Machine creation complete."
     }
-}
 
 destroy_machine() {
     MACHINE_NAME="$1"
-    FORCE=
-    [[ $# -ge 2 && "$2" == "--force" ]] && FORCE="--force"
-    docker-machine rm ${FORCE} ${MACHINE_NAME}
+    docker-machine rm --force ${MACHINE_NAME}
 }
 
 run_playbook() {
