@@ -7,25 +7,27 @@ GANTRY_BIND_MOUNT_GUEST_DIR=/tmp/gantry
 ALREADY_RUNNING=0
 docker container inspect gantry &>/dev/null && ALREADY_RUNNING=1
 
-case $1 in
-    upgrade)
-        docker pull ${GANTRY_IMAGE} && shift
-        exit 0
-        ;;
+if [ $# -gt 0 ]; then
+    case $1 in
+        upgrade)
+            docker pull ${GANTRY_IMAGE} && shift
+            exit 0
+            ;;
 
-    --data-dir)
-        if [[ $# -ge 2 || ! -d "${GANTRY_BIND_MOUNT_HOST_DIR}" ]]; then
-            if [ ${ALREADY_RUNNING} -eq 1 ]; then
-                echo >&2 "ERROR: --data-dir cannot be changed when Gantry is already running..."
-                exit 1
+        --data-dir)
+            if [[ $# -ge 2 || ! -d "${GANTRY_BIND_MOUNT_HOST_DIR}" ]]; then
+                if [ ${ALREADY_RUNNING} -eq 1 ]; then
+                    echo >&2 "ERROR: --data-dir cannot be changed when Gantry is already running..."
+                    exit 1
+                fi
+                GANTRY_BIND_MOUNT_HOST_DIR="$(realpath $2)" && shift 2
+                echo "Data directory to use on host: ${GANTRY_BIND_MOUNT_HOST_DIR}"
+            else
+                set -- --help
             fi
-            GANTRY_BIND_MOUNT_HOST_DIR="$(realpath $2)" && shift 2
-            echo "Data directory to use on host: ${GANTRY_BIND_MOUNT_HOST_DIR}"
-        else
-            set -- --help
-        fi
-        ;;
-esac
+            ;;
+    esac
+fi
 
 COMMON_ARGS="-it -e GANTRY_DEBUG -e ANSIBLE_DEBUG -e ANSIBLE_NOCOLOR -e ANSIBLE_VERBOSITY -e GANTRY_BIND_MOUNT_HOST_DIR=${GANTRY_BIND_MOUNT_HOST_DIR} -e GANTRY_BIND_MOUNT_GUEST_DIR=${GANTRY_BIND_MOUNT_GUEST_DIR}"
 
