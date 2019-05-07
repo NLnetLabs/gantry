@@ -2,12 +2,12 @@
 set -e -u
 
 # Set default values for unset variables
-: ${DEBUG=0}
+: ${GANTRY_DEBUG=0}
 : ${GANTRY_INSIDE_DOCKER=0}
 : ${DIGITALOCEAN_TOKEN=}
 
 # Echo commands in debug mode
-[ "$DEBUG" == 1 ] && set -x
+[ ${GANTRY_DEBUG} -eq 1 ] && set -x
 
 # Without this the Ansible Network CLI module will fail to connect to the router due to unknown SSH host key
 export ANSIBLE_PARAMIKO_HOST_KEY_AUTO_ADD=True
