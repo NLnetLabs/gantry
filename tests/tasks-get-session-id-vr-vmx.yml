@@ -1,0 +1,5 @@
+---
+- name: "GET VR-VMX RPKI SESSION DETAIL"
+  junos_command:
+    commands: show validation session detail
+  register: result

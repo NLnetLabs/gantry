@@ -1,0 +1,48 @@
+---
+# Juniper VMX origin-database parser
+#
+# - junos_command:
+#     commands:
+#       - environment no more
+#       - show router origin-validation database
+#   register: result
+#
+# - set_fact:
+#     ovdb: "{{ result.stdout[1] | parse_cli(/path/to/this/file.yml) }}"
+#
+# Example command output:
+#
+#   > show validation database
+#   RV database for instance master
+#   
+#   Prefix                 Origin-AS Session                                 State   Mismatch
+#   1.0.0.0/24-24              13335 167.99.33.240                           valid  
+#   1.1.1.0/24-24              13335 167.99.33.240                           valid  
+#   1.9.0.0/16-24               4788 167.99.33.240                           valid  
+#   1.9.12.0/24-24             65037 167.99.33.240                           valid  
+#   1.9.21.0/24-24             24514 167.99.33.240                           valid  
+#   1.9.23.0/24-24             65120 167.99.33.240                           valid  
+#
+# ...
+#
+# Example variable contents:
+#
+# "ovdb": {
+#     "vrps": [
+#         {
+#             "asn": "AS13335",
+#             "prefix": "1.0.0.0/24",
+#             "maxLength": "24"
+#         },
+# ...
+
+vars:
+  vrp:
+    asn: "AS{{ item.origin_as }}"
+    prefix: "{{ item.prefix }}"
+    maxLength: "{{ item.max_length }}"
+
+keys:
+  vrps:
+    value: "{{ vrp }}"
+    items: "^(?P<prefix>[0-9a-f.:/]+\/[0-9]+)-(?P<max_length>[0-9]+)\\s+(?P<origin_as>\\d+)"

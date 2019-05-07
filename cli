@@ -11,6 +11,8 @@ set -e -u
 
 # Without this the Ansible Network CLI module will fail to connect to the router due to unknown SSH host key
 export ANSIBLE_PARAMIKO_HOST_KEY_AUTO_ADD=True
+export ANSIBLE_HOST_KEY_AUTO_ADD=True
+export ANSIBLE_HOST_KEY_CHECKING=False # for junos_config use of ncclient.connect()
 
 # Disable automated fact gathering as the host on which Ansible runs is not interesting to us, we're interested
 # in what happens inside Docker containers on the host, and having to say gather_facts: false for every - hosts:
@@ -517,7 +519,7 @@ case "$MODE" in
                     case "$MODE" in
                         deploy)
                             for COMPONENT in $(get_undeployed_component_names); do COMPONENTS+=( $COMPONENT ); done
-                    ;;
+                            ;;
                         undeploy)
                             NAMES_ARE_MACHINE_NAMES=1
                             for COMPONENT in $(get_deployed_component_names); do COMPONENTS+=( $COMPONENT ); done
@@ -584,8 +586,8 @@ case "$MODE" in
                 esac
             done
 
-                export_component_vars "${COMPONENT}"
-                docker-machine ssh ${DOCKER_MACHINE_NAME} docker logs ${FOLLOW} ${DOCKER_SERVICE}
+            export_component_vars "${COMPONENT}"
+            docker-machine ssh ${DOCKER_MACHINE_NAME} docker logs ${FOLLOW} ${DOCKER_SERVICE}
         elif [[ "${COMPONENT}" == "routinator" || "${SSH_TO_HOST}" -eq 1 ]]; then
             my_log "You are about to be connected to the host Droplet on which the ${COMPONENT} Docker container runs."
             check_proceed && echo && docker-machine ssh ${DOCKER_MACHINE_NAME}

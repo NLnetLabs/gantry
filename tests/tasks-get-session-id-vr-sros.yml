@@ -1,0 +1,5 @@
+---
+- name: "GET VR-SROS RPKI SESSION DETAIL"
+  sros_command:
+    commands: show router origin-validation rpki-session detail
+  register: result

@@ -1,0 +1,46 @@
+---
+# Juniper VMX origin-database parser
+#
+# - junos_command:
+#     commands: show validation session detail
+#   register: result
+#
+# - set_fact:
+#     ovdb: "{{ result.stdout[0] | parse_cli(/path/to/this/file.yml) }}"
+#
+# Example command output:
+#
+# nlnetlabs> show validation session detail 
+# Session 167.99.33.240, State: up, Session index: 2
+#   Group: routinator, Preference: 100
+#   Port: 3323
+#   Refresh time: 300s
+#   Hold time: 600s
+#   Record Life time: 3600s
+#   Serial (Full Update): 0
+#   Serial (Incremental Update): 10
+#     Session flaps: 0
+#     Session uptime: 00:49:33
+#     Last PDU received: 00:04:29
+#     IPv4 prefix count: 69589
+#     IPv6 prefix count: 12744
+#
+# Example variable contents:
+#
+#    "ovdb": {
+#        "sessions": [
+#            {
+#                "session_id": 10
+#            }
+#        ]
+#    }
+# ...
+
+vars:
+  session:
+    session_id: "{{ item.session_id }}"
+
+keys:
+  sessions:
+    value: "{{ session }}"
+    items: "Serial \\(Incremental Update\\):\\s(?P<session_id>\\d+)"

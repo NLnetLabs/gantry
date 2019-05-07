@@ -9,6 +9,40 @@
     include_tasks: tasks-router-common-pre.yml
 
   # do router series/version specific setup here
+  - block:
+    - name: "ENABLE ROUTER OUTBOUND CONNECTIVITY VIA INTERFACE fpx0.0 (user: {{ router_user }}, pass: {{ router_pass }}, port: {{ router_port_external }})"
+      junos_config:
+        lines: "set routing-options static route 0.0.0.0/0 next-hop 10.0.0.2"
+
+    - name: "ENABLE RPKI ORIGIN VALIDATION VIA ROUTINATOR @ {{ routinator_ip }}:{{ routinator_port }}"
+      junos_config:
+        lines: "set routing-options validation group routinator session {{ routinator_ip }} port {{ routinator_port }}"
+
+    - name: "WAIT FOR CONNECTION ESTABLISHED TO THE ROUTINATOR"
+      junos_command:
+        commands: show validation session detail
+      register: result
+      until: 'result.stdout[0].find("State: up") != -1'
+      delay: 10
+      retries: 6
+    
+    - debug: var=result
+
+    when: hostvars[inventory_hostname].dm_tags.find('gantry_component:vr-vmx') != -1
+    connection: local
+    vars:
+      router_ip: "{{ ansible_host }}"
+      routinator_ip: "{{ hostvars['routinator'].ansible_host }}"
+      provider:
+        host: "{{ ansible_host }}"
+        username: "{{ router_user }}"
+        password: "{{ router_pass }}"
+        port: "{{ router_port_external }}"
+    module_defaults:
+      junos_config:
+        provider: "{{ provider }}"
+      junos_command:
+        provider: "{{ provider }}"
 
   - name: Include post tasks common to all routers
     include_tasks: tasks-router-common-post.yml

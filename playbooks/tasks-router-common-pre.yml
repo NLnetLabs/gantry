@@ -50,7 +50,7 @@
     command: docker ps
     register: result
     until: result.stdout_lines[1] | regex_search('\(healthy\)')
-    delay: 10
+    delay: 30
     retries: "{{ router_healthcheck_retries }}"
 
   connection: local

@@ -1,14 +1,25 @@
 ---
-- name: "ON ROUTER {{ inventory_hostname }} @ {{ ansible_host }}: GET RPKI SESSION DETAIL"
-  sros_command:
-    commands: show router origin-validation rpki-session detail
-  register: result
+- block:
+  - name: "GET RPKI SESSION DETAIL"
+    include_tasks: "tasks-get-session-id-{{ router_type }}.yml"
 
-- name: "ON ANSIBLE CONTROLLER: EXTRACT SESSION ID FROM RPKI SESSION DETAIL"
-  set_fact:
-    ovdb: "{{ result.stdout[0] | parse_cli(parser_schema) }}"
+  - name: "SHOW RPKI SESSION DETAIL"
+    debug: var=result
+
+  - name: "EXTRACT SESSION ID FROM RPKI SESSION DETAIL"
+    set_fact:
+      ovdb: "{{ result.stdout[0] | parse_cli(parser_schema) }}"
+    vars:
+      # crazy dm_tags splitting is because we can't create host vars per tag using the docker_machine inventory settings
+      # Ansible constructed (https://docs.ansible.com/ansible/latest/plugins/inventory/constructed.html) can't do it yet,
+      # and my inclusion of a feature to do such tag splitting in the docker machine inventory plugin was rejected by the
+      # core Ansible developers during review of https://github.com/ansible/ansible/pull/54946 (no longer visible in the
+      # comments as it seems it was lost after rebase).
+      parser_schema: "{{ lookup('env', 'GANTRY_BIND_MOUNT_GUEST_DIR') }}/parser-{{ router_type }}-rpki-session.yml"
+
+  - name: "SHOW EXTRACTED RPKI SESSION NUMBER"
+    debug:
+      msg: "RPKI session number: {{ ovdb.sessions[0].session_id }}"
+
   vars:
-    parser_schema: "{{ lookup('env', 'GANTRY_BIND_MOUNT_GUEST_DIR') }}/parser-vr-sros-rpki-session.yml"
-
-- debug:
-    msg: "RPKI session aka Routinator serial: {{ ovdb.sessions[0].session_id }}"
+    router_type: "{{ dm_tags.split(',')[0].split(':')[1] }}"

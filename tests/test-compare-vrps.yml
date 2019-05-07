@@ -49,34 +49,17 @@
 
     # Fetch the origin-validation Validated ROA Payload (VRP) database and transform the VRPs
     # into Routinator-like JSON structure ({ asn, prefix, maxLength }).
-    - name: "ON ANSIBLE CONTROLLER: FETCH FULL RPKI DATABASE FROM {{ inventory_hostname }} @ {{ ansible_host }}"
-      sros_command:
-        timeout: 60
-        commands:
-          - environment no more
-          - show router origin-validation database
-      register: result
+    - name: "FETCH FULL RPKI DATABASE FROM ROUTER"
+      include_tasks: "tasks-fetch-full-rpki-db-{{ router_type }}.yml"
+      vars:
+        router_type: "{{ dm_tags.split(',')[0].split(':')[1] }}"
 
-    # result.stdout[1] now contains a single long string of the form: (lines are split here for readability, in reality it's a single string)
-    # ===============================================================================\n
-    # Static and Dynamic VRP Database Entries\n
-    # ===============================================================================\n
-    # Prefix Range [Flags]                                            Origin AS\n
-    #    Session IP [Flags]                                           \n
-    # -------------------------------------------------------------------------------\n
-    # 1.0.0.0/24-24 [Dynamic]                                         13335\n
-    #     142.93.237.82 [B]                                               \n
-    # 1.1.1.0/24-24 [Dynamic]                                         13335\n
-    #     142.93.237.82 [B]                                               \n
-    # ...
-
-    # TODO: eliminate hard-coded /tmp/gantry reference
     # TODO: this is SLOW, can we speed it up?
     - name: "PARSE, TRANSFORM AND SORT ROUTER VRPS"
       set_fact:
         router_vrps: "{{ result.stdout[1] | parse_cli(parser_schema) | json_query(qry) }}"
       vars:
-        parser_schema: "{{ lookup('env', 'GANTRY_BIND_MOUNT_GUEST_DIR') }}/parser-vr-sros-rpki-vrps.yml"
+        parser_schema: "{{ lookup('env', 'GANTRY_BIND_MOUNT_GUEST_DIR') }}/parser-{{ dm_tags.split(',')[0].split(':')[1] }}-rpki-vrps.yml"
         qry: "vrps[].join('|', [asn, prefix, to_string(maxLength)]) | sort(@)"
 
     # Example output: "Transformed 81577 router VRPs into format ['AS0|103.209.125.0/24|24', 'AS0|103.209.127.0/24|24', 'AS0|103.237.95.0/24|24']...
@@ -105,7 +88,7 @@
           content: "{{ lookup('vars', item.item) | join('\n') }}"
           dest: "{{ item.path }}"
         with_items: "{{ tmpfiles }}"
-
+    
       - name: "CAPTURE FIRST FEW LINES OF FILES TO BE DIFFED"
         command: "head -n 3 {{ tmpfiles[0].path }} {{ tmpfiles[1].path }}"
         register: result
@@ -130,7 +113,7 @@
           num_extra: "{{ result.stdout | regex_findall('>') | length }}"
           num_missing: "{{ result.stdout | regex_findall('<') | length }}"
           total_vrps: "{{ routinator_vrps | length }}"
-
+    
       - name: "SHOW VRP DB EQUALITY SUMMARY"
         debug:
           msg: "For Routinator serial {{ routinator_serial }} the {{ router_vrps | length }} router VRPs are the same as the {{ routinator_vrps | length }} Routinator VRPs"
@@ -143,8 +126,6 @@
             path: "{{ item.path }}"
           with_items: "{{ tmpfiles }}"
 
-    when: hostvars[inventory_hostname].dm_tags.find('gantry_component:vr-sros') != -1 and
-          hostvars[inventory_hostname].dm_tags.find('gantry_component_version:16-0-R6') != -1
     connection: local
     vars:
       router_ip: "{{ ansible_host }}"
@@ -156,8 +137,13 @@
         username: "{{ router_user }}"
         password: "{{ router_pass }}"
         port: "{{ router_port_external }}"
+        timeout: 180
     module_defaults:
       sros_config:
         provider: "{{ provider }}"
       sros_command:
+        provider: "{{ provider }}"
+      junos_config:
+        provider: "{{ provider }}"
+      junos_command:
         provider: "{{ provider }}"

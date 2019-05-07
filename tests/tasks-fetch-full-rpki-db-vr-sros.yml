@@ -1,0 +1,7 @@
+---
+- name: "FETCH FULL RPKI DATABASE FROM VR-SROS ROUTER"
+  sros_command:
+    commands:
+      - environment no more
+      - show router origin-validation database
+  register: result

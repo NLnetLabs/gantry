@@ -1,0 +1,8 @@
+---
+- name: "FETCH FULL RPKI DATABASE FROM VR-VMX ROUTER"
+  junos_command:
+    commands:
+      - set cli screen-length 0
+      - show validation database
+    timeout: 300
+  register: result
