@@ -715,7 +715,7 @@ case "$MODE" in
         COMPONENT="$1"; shift
         PLAYBOOK_FILENAME=""
         if [ $# -ge 1 ]; then
-            PLAYBOOK_FILENAME="$1"
+            PLAYBOOK_FILENAME="$1"; shift
             PLAYBOOK_PATH="${GANTRY_BIND_MOUNT_GUEST_DIR}/${PLAYBOOK_FILENAME}"
             [ ! -e "${PLAYBOOK_PATH}" ] && abort "Test suite playbook file '${GANTRY_BIND_MOUNT_HOST_DIR}/${PLAYBOOK_FILENAME}' not found."
         else
