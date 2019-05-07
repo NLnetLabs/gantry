@@ -111,14 +111,14 @@ NLnet Labs Gantry is a tool for deploying and testing network routers in the clo
 Usage: gantry help|--help
 
 Component management commands:
-       gantry deploy   <COMPONENT> [--region <REGION:default=ams3>] 
+       gantry deploy   <COMPONENT> [<COMPONENT>..] [--region <REGION:default=ams3>] 
        gantry docker   <COMPONENT> ..commands..
        gantry exec     <COMPONENT> ..commands..
        gantry ip       <COMPONENT>
-       gantry logs     <COMPONENT> [--follow|--detailed]
+       gantry logs     <COMPONENT> [--follow]
        gantry ssh      <COMPONENT> [--host]
        gantry status
-       gantry undeploy <COMPONENT>|all [--force]
+       gantry undeploy <COMPONENT> [<COMPONENT>..] [--force]
 
 Docker registry commands:
        gantry registry ls|deploy|publish
@@ -134,7 +134,7 @@ Wrapper commands:
 Wrapper options:
        gantry --data-dir <PATH/TO/YOUR/DATA/FILES:default=/tmp/gantry>
 
-Where COMPONENT can be one of:
+Where COMPONENT can be one of: (deploy and undeploy also accept special component 'all')
        COMPONENT            VENDOR
        routinator           NLnet Labs
        vr-csr:16.09.02      Cisco CSR1000v

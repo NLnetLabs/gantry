@@ -420,7 +420,7 @@ Component management commands:
        ${BASENAME} docker   <COMPONENT> ..commands..
        ${BASENAME} exec     <COMPONENT> ..commands..
        ${BASENAME} ip       <COMPONENT>
-       ${BASENAME} logs     <COMPONENT> [--follow|--detailed]
+       ${BASENAME} logs     <COMPONENT> [--follow]
        ${BASENAME} ssh      <COMPONENT> [--host]
        ${BASENAME} status
        ${BASENAME} undeploy <COMPONENT> [<COMPONENT>..] [--force]
@@ -584,13 +584,8 @@ case "$MODE" in
                 esac
             done
 
-            if [ "${DETAILED}" -eq 0 ]; then
                 export_component_vars "${COMPONENT}"
                 docker-machine ssh ${DOCKER_MACHINE_NAME} docker logs ${FOLLOW} ${DOCKER_SERVICE}
-            else
-                [ "${COMPONENT}" == "routinator" ] || abort "Detailed logs are not supported yet for ${COMPONENT}."
-                ${SELF} exec routinator -v vrps
-            fi
         elif [[ "${COMPONENT}" == "routinator" || "${SSH_TO_HOST}" -eq 1 ]]; then
             my_log "You are about to be connected to the host Droplet on which the ${COMPONENT} Docker container runs."
             check_proceed && echo && docker-machine ssh ${DOCKER_MACHINE_NAME}
