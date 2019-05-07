@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e -u
 GANTRY_IMAGE=nlnetlabs/gantry:latest
 GANTRY_BIND_MOUNT_HOST_DIR=/tmp/gantry
 GANTRY_BIND_MOUNT_GUEST_DIR=/tmp/gantry
