@@ -735,10 +735,14 @@ case "$MODE" in
         ;;
 
     debug)
-        MODE="$1"; shift
-        case ${MODE} in
+        [ $# -lt 1 ] && abort_with_usage
+        SUBMODE="$1"; shift
+        case ${SUBMODE} in
             ansible-inventory)
                 ansible-inventory -i ${INVENTORY_PLUGIN_CONFIG_FILE} $*
+                ;;
+            docker-machine)
+                docker-machine $*
                 ;;
         esac
         ;;
