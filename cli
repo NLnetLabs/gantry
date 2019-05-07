@@ -33,6 +33,24 @@ DIGITAL_OCEAN_REGION="ams3"
 DIGITAL_OCEAN_BASE_OS_SLUG="ubuntu-18-04-x64"
 NOT_DEPLOYED="-"
 INVENTORY_PLUGIN_CONFIG_FILE="${BASEDIR}/docker_machine.yml"
+CHILD_PIDS=( )
+
+export ANSIBLE_PERSISTENT_COMMAND_TIMEOUT=1800
+export ANSIBLE_PERSISTENT_CONNECT_TIMEOUT=1800 # for: https://github.com/ansible/ansible/commit/f547c88adec71b8822cfd30df1a5850bdc778c02
+
+wait_for_children() {
+    # wait for subprocesses to finish
+    for PID in ${CHILD_PIDS[*]}; do
+        wait $PID
+    done
+    CHILD_PIDS=( )
+}
+
+get_longest_length() {
+    LEN=-1
+    for EL in $*; do [ ${#EL} -gt $LEN ] && LEN=${#EL}; done
+    echo $LEN
+}
 
 my_timestamp() {
     date +'%Y-%m-%d %H:%M:%S %z'
@@ -70,6 +88,17 @@ check_digitalocean_api_token() {
 check_proceed() {
     read -p "$(my_timestamp): Do you wish to proceed? [y/N] " CHOICE
     test 'y' == "${CHOICE}"
+}
+
+prefix_console_output() {
+    LOG_PREFIX="$1"
+    # save and redirect STDOUT and STDERR file descriptors to setup output prefixing 
+    exec 5>&1 6>&2 1> >(sed "s/^/${LOG_PREFIX}/") 2> >(sed "s/^/${LOG_PREFIX}/")
+}
+
+unprefix_console_output() {
+    # restore original STDOUT and STDERR file descriptors
+    exec 1>&5 2>&6
 }
 
 create-machine() {
@@ -206,28 +235,134 @@ print_status() {
     IFS=${OLDIFS}
 }
 
-undeploy_all() {
-    FORCE=0
-    [[ $# -ge 1 && "$1" == "--force" ]] && FORCE=1
-
+get_undeployed_component_names() {
     OLDIFS=$IFS; IFS=$'\n'
-    UNDEPLOY_COMPONENTS=""
     for REPORT_LINE in $(get_deployment_report); do
         COMPONENT="$(echo ${REPORT_LINE} | cut -d '|' -f 1)"
         STATUS="$(echo ${REPORT_LINE} | cut -d '|' -f 2)"
-        [ "${STATUS}" != "${NOT_DEPLOYED}" ] && UNDEPLOY_COMPONENTS="${UNDEPLOY_COMPONENTS} ${COMPONENT}"
+        [ "${STATUS}" == "${NOT_DEPLOYED}" ] && echo ${COMPONENT}
     done
     IFS=${OLDIFS}
+}
 
-    if [ ${FORCE} -eq 0 ]; then
+get_deployed_component_names() {
+    docker-machine ls -q
+}
+
+undeploy_many() {
+    FORCE=$1; shift
+    NAMES_ARE_MACHINE_NAMES=$1; shift
+    UNDEPLOY_COMPONENTS=$*
         NUM_COMPONENTS_TO_UNDEPLOY=$(echo ${UNDEPLOY_COMPONENTS} | wc -w)
-        my_log "You are about to undeploy ${NUM_COMPONENTS_TO_UNDEPLOY} components"
+
+    [ $NUM_COMPONENTS_TO_UNDEPLOY -le 0 ] && return
+
+    if [ "${FORCE}" -eq 0 ]; then
+        my_log "You are about to undeploy ${NUM_COMPONENTS_TO_UNDEPLOY} components: " ${UNDEPLOY_COMPONENTS}
         check_proceed || return
     fi
 
+    MAX_NAME_LEN=$(get_longest_length ${UNDEPLOY_COMPONENTS})
+
     for COMPONENT in ${UNDEPLOY_COMPONENTS}; do
-        ${SELF} undeploy ${COMPONENT} --force
+        prefix_console_output "$(printf "[%-${MAX_NAME_LEN}s] " ${COMPONENT})"
+
+        # undeploy one component in the background with log prefixing enabled
+        (
+            if [ $NAMES_ARE_MACHINE_NAMES -eq 0 ]; then
+                export_component_vars "${COMPONENT}"
+                my_log "Destroying ${COMPONENT} host Docker Machine ${DOCKER_MACHINE_NAME}.."
+                destroy_machine ${DOCKER_MACHINE_NAME}
+            else
+                my_log "Destroying Docker Machine ${COMPONENT}"
+                destroy_machine ${COMPONENT}
+            fi
+        ) &
+
+        # capture the PID of the launched subprocess
+        CHILD_PIDS+=( $! )
+
+        unprefix_console_output
     done
+
+    wait_for_children
+}
+
+deploy_many() {
+    REGION="${DIGITAL_OCEAN_REGION}"
+    [[ $# -ge 1 && "$1" == "--region" ]] && REGION=$2 && shift 2
+
+    declare -a DEPLOY_COMPONENTS
+    declare -a OTHER_ARGS
+    for ARG in $*; do
+        PLAYBOOK_PATH="${PLAYBOOKS_DIR}/playbook-${ARG}.yml"
+        if [ -f "$PLAYBOOK_PATH" ]; then
+            DEPLOY_COMPONENTS+=( ${ARG} )
+        else
+            OTHER_ARGS+=( ${ARG} )
+        fi
+    done
+
+    my_log "Components to deploy: ${DEPLOY_COMPONENTS[@]}"
+    my_log "Arguments to pass to Ansible: ${OTHER_ARGS[@]}"
+
+    check_digitalocean_api_token
+
+    for COMPONENT in ${DEPLOY_COMPONENTS[@]}; do
+        PLAYBOOK_PATH="${PLAYBOOKS_DIR}/playbook-${COMPONENT}.yml"
+        [ ! -e "${PLAYBOOK_PATH}" ] && abort "No Ansible playbook found for ${COMPONENT}."
+    done
+
+    announce-takeoff
+
+    MAX_NAME_LEN=$(get_longest_length ${DEPLOY_COMPONENTS[@]})
+
+    for COMPONENT in ${DEPLOY_COMPONENTS[@]}; do
+        prefix_console_output "$(printf "[%-${MAX_NAME_LEN}s] " ${COMPONENT})"
+
+        # deploy one component in the background with log prefixing enabled
+        (
+            PLAYBOOK_PATH="${PLAYBOOKS_DIR}/playbook-${COMPONENT}.yml"
+            export_component_vars "${COMPONENT}"
+            VM_SIZE=$(get_playbook_specific_var "${PLAYBOOK_PATH}" DROPLET_SIZE)
+            [ -z "${VM_SIZE}" ] && abort "Internal error: No Droplet size specified for ${COMPONENT}."
+            DO_TAGS="gantry_component:${COMPONENT_NAME},gantry_component_version:${COMPONENT_VERSION}"
+            if [ "${COMPONENT}" == "routinator" ]; then
+                DO_TAGS="${DO_TAGS},gantry_type:rpkicache"
+            else
+                DO_TAGS="${DO_TAGS},gantry_type:router"
+            fi
+
+            my_log "Deploying Docker Machine ${DOCKER_MACHINE_NAME} for component ${COMPONENT} using Droplet size ${VM_SIZE} in region ${REGION} with tags '${DO_TAGS}'.."
+            create-machine ${DOCKER_MACHINE_NAME} ${VM_SIZE} ${DIGITAL_OCEAN_REGION} ${DO_TAGS}
+        ) &
+
+        # capture the PID of the launched subprocess
+        CHILD_PIDS+=( $! )
+
+        unprefix_console_output
+    done
+
+    wait_for_children
+
+    for COMPONENT in ${DEPLOY_COMPONENTS[@]}; do
+        prefix_console_output "$(printf "[%-${MAX_NAME_LEN}s] " ${COMPONENT})"
+
+        # deploy one component in the background with log prefixing enabled
+        (
+            PLAYBOOK_PATH="${PLAYBOOKS_DIR}/playbook-${COMPONENT}.yml"
+            export_component_vars "${COMPONENT}"
+            my_log "Deploying ${COMPONENT} on Docker Machine ${DOCKER_MACHINE_NAME} using Ansible playbook ${PLAYBOOK_PATH}.."
+            run_playbook ${PLAYBOOK_PATH} ${DOCKER_MACHINE_NAME} ${OTHER_ARGS[@]}
+        ) &
+
+        # capture the PID of the launched subprocess
+        CHILD_PIDS+=( $! )
+
+        unprefix_console_output
+    done
+
+    wait_for_children
 }
 
 announce-takeoff() {
@@ -281,14 +416,14 @@ NLnet Labs Gantry is a tool for deploying and testing network routers in the clo
 Usage: ${BASENAME} help|--help
 
 Component management commands:
-       ${BASENAME} deploy   <COMPONENT> [--region <REGION:default=${DIGITAL_OCEAN_REGION}>] 
+       ${BASENAME} deploy   <COMPONENT> [<COMPONENT>..] [--region <REGION:default=${DIGITAL_OCEAN_REGION}>] 
        ${BASENAME} docker   <COMPONENT> ..commands..
        ${BASENAME} exec     <COMPONENT> ..commands..
        ${BASENAME} ip       <COMPONENT>
        ${BASENAME} logs     <COMPONENT> [--follow|--detailed]
        ${BASENAME} ssh      <COMPONENT> [--host]
        ${BASENAME} status
-       ${BASENAME} undeploy <COMPONENT>|all [--force]
+       ${BASENAME} undeploy <COMPONENT> [<COMPONENT>..] [--force]
 
 Docker registry commands:
        ${BASENAME} registry ls|deploy|publish
@@ -310,7 +445,7 @@ EOF
 
     cat >&2 <<EOF
 
-Where COMPONENT can be one of:
+Where COMPONENT can be one of: (deploy and undeploy also accept special component 'all')
 EOF
 
     INDENT="       "
@@ -345,6 +480,14 @@ cleanup() {
     fi
 }
 
+ctrl_c() {
+    my_log "Aborting.."
+    for PID in ${CHILD_PIDS[*]}; do
+        kill -TERM $PID
+    done
+}
+
+trap ctrl_c INT
 trap cleanup EXIT
 
 check_dependencies \
@@ -362,52 +505,45 @@ case "$MODE" in
 
     deploy|undeploy)
         [ $# -lt 1 ] && abort_with_usage
-        COMPONENT="$1"; shift
 
-        PLAYBOOK_PATH="${PLAYBOOKS_DIR}/playbook-${COMPONENT}.yml"
-        [[ "${COMPONENT}" != "all" && ! -e "${PLAYBOOK_PATH}" ]] && abort "No Ansible playbook found for ${COMPONENT}."
-        if [ "${MODE}" == "undeploy" ]; then
-            case $COMPONENT in
+        # get the set of components to undeploy
+        declare -a COMPONENTS
+        FORCE=0
+        NAMES_ARE_MACHINE_NAMES=0
+        REGION="${DIGITAL_OCEAN_REGION}"
+        while [ $# -gt 0 ]; do
+            case $1 in
                 all)
-                    ${SELF} status
-                    undeploy_all $*
-                    exit 0
+                    case "$MODE" in
+                        deploy)
+                            for COMPONENT in $(get_undeployed_component_names); do COMPONENTS+=( $COMPONENT ); done
                     ;;
-
+                        undeploy)
+                            NAMES_ARE_MACHINE_NAMES=1
+                            for COMPONENT in $(get_deployed_component_names); do COMPONENTS+=( $COMPONENT ); done
+                            ;;
+                    esac
+                    ;;
+                --force)
+                    FORCE=1
+                    ;;
+                --region)
+                    REGION=$2
+                    shift
+                    ;;
                 *)
-                    [ -e "${PLAYBOOK_PATH}" ] || abort_with_usage
+                    COMPONENTS+=($1)
                     ;;
             esac
-        fi
+            shift
+        done
 
-        if [[ $# -ge 2 && "$1" == "--region" ]]; then
-            [ "${MODE}" == "deploy" ] || abort_with_usage
-            DIGITAL_OCEAN_REGION = "$2"; shift 2
-        fi
-
-        [ "${COMPONENT}" != "all" ] && export_component_vars "${COMPONENT}"
-        case ${MODE} in
+        case "$MODE" in
             deploy)
-                [ "${COMPONENT}" == "all" ] && abort_with_usage
-                check_digitalocean_api_token
-                VM_SIZE=$(get_playbook_specific_var "${PLAYBOOK_PATH}" DROPLET_SIZE)
-                [ -z "${VM_SIZE}" ] && abort "Internal error: No Droplet size specified for ${COMPONENT}."
-                DO_TAGS="gantry_component:${COMPONENT_NAME},gantry_component_version:${COMPONENT_VERSION}"
-                if [ "${COMPONENT}" == "routinator" ]; then
-                    DO_TAGS="${DO_TAGS},gantry_type:rpkicache"
-                else
-                    DO_TAGS="${DO_TAGS},gantry_type:router"
-                fi
-
-                my_log "Deploying ${COMPONENT} as Docker Machine ${DOCKER_MACHINE_NAME} on ${VM_SIZE} Droplet in ${DIGITAL_OCEAN_REGION} with tags '${DO_TAGS}'.."
-
-                announce-takeoff
-                create-machine ${DOCKER_MACHINE_NAME} ${VM_SIZE} ${DIGITAL_OCEAN_REGION} ${DO_TAGS}
-                run_playbook ${PLAYBOOK_PATH} ${DOCKER_MACHINE_NAME} $*
+                deploy_many --region ${REGION} ${COMPONENTS[@]} $*
                 ;;
             undeploy)
-                my_log "Destroying ${COMPONENT} host Docker Machine ${DOCKER_MACHINE_NAME}.."
-                destroy_machine ${DOCKER_MACHINE_NAME} $*
+                undeploy_many ${FORCE} ${NAMES_ARE_MACHINE_NAMES} ${COMPONENTS[@]}
                 ;;
         esac
         ;;
