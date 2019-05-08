@@ -10,7 +10,7 @@
 
   # do router series/version specific setup here
   - block:
-    - name: "ENABLE ROUTER OUTBOUND CONNECTIVITY VIA INTERFACE fpx0.0 (user: {{ router_user }}, pass: {{ router_pass }}, port: {{ router_port_external }})"
+    - name: "ENABLE ROUTER OUTBOUND CONNECTIVITY VIA INTERFACE fpx0.0"
       junos_config:
         lines: "set routing-options static route 0.0.0.0/0 next-hop 10.0.0.2"
 

@@ -13,7 +13,7 @@
   # and Paramiko SSH seems to read known_hosts files BEFORE the Ansible playbook is executed, so we can't write logic in
   # this playbook to change the Paramiko behaviour or to supply the missing host key.
   - block:
-    - name: "ENABLE PORT 1/1/1 (user: {{ router_user }}, pass: {{ router_pass }}, port: {{ router_port_external }})"
+    - name: "ENABLE PORT 1/1/1"
       sros_config:
         lines: "configure port 1/1/1 no shutdown"
     
