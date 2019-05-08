@@ -8,6 +8,6 @@ before_install:
 - docker build -t nlnetlabs/gantry .
 script:
 - "./gantry deploy routinator vr-sros:16.0.R6 vr-vmx:18.2R1.9"
-- "./gantry test --data-dir tests test all"
+- "./gantry --data-dir tests test all"
 after_script:
 - "./gantry undeploy all --force"
