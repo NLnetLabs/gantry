@@ -74,6 +74,10 @@ RUN patch -p1 < /opt/nlnetlabs/gantry/vrnetlab.patch
 WORKDIR /usr/local/lib/python3.6/dist-packages/ansible
 RUN patch -p3 < /opt/nlnetlabs/gantry/ansible-51055.patch
 
+# Pre-create CA cert and private key files for use by Docker Machine, to work around https://github.com/docker/machine/issues/3634
+WORKDIR /root/.docker/machines/certs/
+RUN openssl req -x509 -newkey rsa:4096 -keyout ca-key.pem -out ca.pem -days 365 -nodes -subj '/CN=localhost'
+
 # Final touches
 WORKDIR /opt/nlnetlabs/gantry
 VOLUME /root/.docker/machine

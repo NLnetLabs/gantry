@@ -325,6 +325,12 @@ deploy_many() {
         prefix_console_output "$(printf "[%-${MAX_NAME_LEN}s] " ${COMPONENT})"
 
         # deploy one component in the background with log prefixing enabled
+        # Note this assumes that the Docker Machine CA files ca.pem and ca-key.pem already exist in ~/.docker/machines/certs/.
+        # Otherwise parallel invocations of docker-machine create may all attempt to create the CA thereby overwriting the files
+        # needed to authenticate with machines that used client certs generated using earlier created CA files.
+        # See: 
+        #   - https://github.com/docker/machine/issues/3634
+        #   - https://frank.sauerburger.io/2018/08/01/create-docker-machine-with-custom-certificates.html
         (
             [ ${GANTRY_DEBUG} -eq 1 ] && set -x
             PLAYBOOK_PATH="${PLAYBOOKS_DIR}/playbook-${COMPONENT}.yml"
