@@ -7,7 +7,7 @@ before_install:
 - openssl aes-256-cbc -K $encrypted_90df736c1e20_key -iv $encrypted_90df736c1e20_iv -in gantry.cfg.enc -out gantry.cfg -d
 - docker build -t nlnetlabs/gantry .
 script:
-- ./gantry deploy routinator vr-sros:16.0.R6 vr-vmx:18.2R1.9
+- ./gantry deploy --region nyc1 routinator vr-sros:16.0.R6 vr-vmx:18.2R1.9
 after_success:
 - ./gantry --data-dir tests test all
 after_script:
