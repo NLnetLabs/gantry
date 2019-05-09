@@ -8,6 +8,7 @@ set -e -u
 
 # Echo commands in debug mode
 [ ${GANTRY_DEBUG} -eq 1 ] && set -x
+export SHELLOPTS
 
 # Without this the Ansible Network CLI module will fail to connect to the router due to unknown SSH host key
 export ANSIBLE_PARAMIKO_HOST_KEY_AUTO_ADD=True
@@ -271,6 +272,7 @@ undeploy_many() {
 
         # undeploy one component in the background with log prefixing enabled
         (
+            [ ${GANTRY_DEBUG} -eq 1 ] && set -x
             if [ $NAMES_ARE_MACHINE_NAMES -eq 0 ]; then
                 export_component_vars "${COMPONENT}"
                 my_log "Destroying ${COMPONENT} host Docker Machine ${DOCKER_MACHINE_NAME}.."
@@ -324,6 +326,7 @@ deploy_many() {
 
         # deploy one component in the background with log prefixing enabled
         (
+            [ ${GANTRY_DEBUG} -eq 1 ] && set -x
             PLAYBOOK_PATH="${PLAYBOOKS_DIR}/playbook-${COMPONENT}.yml"
             export_component_vars "${COMPONENT}"
             VM_SIZE=$(get_playbook_specific_var "${PLAYBOOK_PATH}" DROPLET_SIZE)
@@ -352,6 +355,7 @@ deploy_many() {
 
         # deploy one component in the background with log prefixing enabled
         (
+            [ ${GANTRY_DEBUG} -eq 1 ] && set -x
             PLAYBOOK_PATH="${PLAYBOOKS_DIR}/playbook-${COMPONENT}.yml"
             export_component_vars "${COMPONENT}"
             my_log "Deploying ${COMPONENT} on Docker Machine ${DOCKER_MACHINE_NAME} using Ansible playbook ${PLAYBOOK_PATH}.."
@@ -443,6 +447,7 @@ Wrapper commands:
 
 Wrapper options:
        ${BASENAME} --data-dir <PATH/TO/YOUR/DATA/FILES:default=${GANTRY_BIND_MOUNT_HOST_DIR}>
+       ${BASENAME} --version
 EOF
 
     cat >&2 <<EOF
@@ -751,6 +756,11 @@ case "$MODE" in
 
     help|--help)
         show_usage
+        ;;
+
+    --version)
+        pushd ${BASEDIR} >/dev/null; VERSION=$(git log -1 --format='%h %ad' --date=iso-strict); DIRTY=$([[ -z $(git status -s) ]] || echo ' (dirty)'); popd >/dev/null
+        echo ${VERSION}${DIRTY}
         ;;
 
     *)
