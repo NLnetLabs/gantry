@@ -766,7 +766,7 @@ case "$MODE" in
 
     --version)
         pushd ${BASEDIR} >/dev/null; VERSION=$(git describe --tags --long); popd >/dev/null
-        echo ${VERSION}${DIRTY}
+        echo ${VERSION}
         ;;
 
     *)
