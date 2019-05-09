@@ -1,6 +1,6 @@
 #!/bin/bash
 # See: https://docs.travis-ci.com/user/job-lifecycle#complex-build-commands
-set -ev
+set -evx
 if [ "${TRAVIS_PULL_REQUEST}" = "false" ]; then
   ./gantry --version
   ./gantry deploy --region nyc1 routinator vr-sros:16.0.R6 vr-vmx:18.2R1.9
