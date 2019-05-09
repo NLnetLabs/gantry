@@ -105,7 +105,7 @@
       - name: "SHOW RAW VRP DIFF RESULT"
         debug: var=result.stdout_lines
 
-      - name: "SHOW VRP DB DIFFERENCES"
+      - name: "SHOW SUMMARY OF VRP DB DIFFERENCES"
         fail:
           msg: "Routinator and router VRP sets for serial '{{ routinator_serial }}' differ: extra/missing/total VRPs: {{ num_extra }}/{{ num_missing }}/{{ total_vrps }}"
         when: result.rc != 0
