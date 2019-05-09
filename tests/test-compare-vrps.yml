@@ -137,7 +137,7 @@
         username: "{{ router_user }}"
         password: "{{ router_pass }}"
         port: "{{ router_port_external }}"
-        timeout: 180
+        timeout: 1800
     module_defaults:
       sros_config:
         provider: "{{ provider }}"
