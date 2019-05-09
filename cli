@@ -117,7 +117,7 @@ create-machine() {
     if docker-machine ip ${MACHINE_NAME} &>/dev/null; then
         my_log "Docker Machine ${MACHINE_NAME} found."
     else
-        my_log "Creating a new Digital Ocean Droplet with Docker Machine (region: ${REGION}, image: ${DIGITAL_OCEAN_BASE_OS_SLUG}, size: ${MACHINE_SIZE}).."
+        my_log "Creating new Digital Ocean Droplet ${MACHINE_NAME} with Docker Machine (region: ${REGION}, image: ${DIGITAL_OCEAN_BASE_OS_SLUG}, size: ${MACHINE_SIZE}).."
         docker-machine create \
         --driver digitalocean \
         --digitalocean-access-token ${DIGITALOCEAN_TOKEN} \
@@ -336,7 +336,7 @@ deploy_many() {
             fi
 
             my_log "Deploying Docker Machine ${DOCKER_MACHINE_NAME} for component ${COMPONENT} using Droplet size ${VM_SIZE} in region ${REGION} with tags '${DO_TAGS}'.."
-            create-machine ${DOCKER_MACHINE_NAME} ${VM_SIZE} ${DIGITAL_OCEAN_REGION} ${DO_TAGS}
+            create-machine ${DOCKER_MACHINE_NAME} ${VM_SIZE} ${REGION} ${DO_TAGS}
         ) &
 
         # capture the PID of the launched subprocess
