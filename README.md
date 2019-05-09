@@ -133,6 +133,7 @@ Wrapper commands:
 
 Wrapper options:
        gantry --data-dir <PATH/TO/YOUR/DATA/FILES:default=/tmp/gantry>
+       gantry --version
 
 Where COMPONENT can be one of: (deploy and undeploy also accept special component 'all')
        COMPONENT            VENDOR
