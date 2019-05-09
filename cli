@@ -765,7 +765,7 @@ case "$MODE" in
         ;;
 
     --version)
-        pushd ${BASEDIR} >/dev/null; VERSION=$(git log -1 --format='%h %ad' --date=iso-strict); DIRTY=$([[ -z $(git status -s) ]] || echo ' (dirty)'); popd >/dev/null
+        pushd ${BASEDIR} >/dev/null; VERSION=$(git describe --tags --long); popd >/dev/null
         echo ${VERSION}${DIRTY}
         ;;
 
