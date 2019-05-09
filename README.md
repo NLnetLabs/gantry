@@ -75,12 +75,26 @@ Status: Downloaded newer image for nlnetlabs/gantry:latest
 ```
 
 ## Status
+Deployment of components to test:
+- [ ] NLnet Labs Krill
+- [x] NLnet Labs Routinator
+- [x] Nokia/Alcatel SROS 16.0.R6 virtual router
+- [x] Juniper VMX 18.2R1.9 virtual router
+- [ ] Cisco IOS XRv 9000 virtual router
+- [ ] Cisco CSR 1000 virtual router
+- [ ] Other RPKI caches (TBD)
 
-The Routinator and the vr-sros-16.0.R6 router can be deployed and automatically setup such that the router populates its RPKI database using the Routinator.
+Configure virtual routers to populate their RPKI VRP database from the Routinator:
+- [x] Nokia/Alcatel SROS 16.0.R6
+- [x] Juniper VMX 18.2R1.9
+- [ ] Cisco IOS XRv 9000 virtual router
+- [ ] Cisco CSR 1000 virtual router
+- [ ] Configure virtual routers to populate their RPKI VRP database from other RPKI caches (TBD)
+- [ ] Configure RPKI caches to use Krill as their data source
 
-Other routers are a work-in-progress.
-
-Test `tests/test-compare-vrps.yml` test attempts to validate how well or not the Routinator works with routers, currently only the Nokia SROS 16.0.R6 virtual router by comparing the set of VRPs known to the router for a specific Routinator serial.
+Test scenarios:
+- [x] Symmetric diff of virtual router VRP database to that of the VRP source (done with Routinator)
+- [ ] Others (TBD)
 
 ## Architecture
 
