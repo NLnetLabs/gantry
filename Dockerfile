@@ -1,5 +1,8 @@
 FROM ubuntu:18.04
 
+# Silence debconf warnings caused by lack of interactive terminal during package installation
+ENV DEBIAN_FRONTEND noninteractive
+
 # Disabled one day when APT was taking forever...
 RUN echo 'Acquire::ForceIPv4 "true";' | tee /etc/apt/apt.conf.d/99force-ipv4
 
