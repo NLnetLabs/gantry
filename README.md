@@ -102,13 +102,13 @@ Gantry depends heavily on the [vrnetlab](https://github.com/plajjan/vrnetlab) pr
 
 Infrastructure is spun up using Docker Machine and Digital Ocean.
 
-Router images are provisioned using Docker Machine, Docker Compose and Ansible.
+Router images are provisioned using Docker Machine, Docker and Ansible.
 
 Terraform is used to deploy a private Docker registry to store the router images. The [reg](https://github.com/genuinetools/reg) tool is used to work with the registry.
 
 Docker, Docker Hub and Bash are used to wrap the project up and make it easy to use. The "simple" Bash wrapper script has already grown beyond the initial expectation and is overdue for a rewrite in Python.
 
-The manner in which different routers with different VM size requirements and post-deployment setup commands is supported will likely evolve, at present it's a bit of an Ansible/Docker Compose/Bash hack.
+The manner in which different routers with different VM size requirements and post-deployment setup commands is supported will likely evolve, at present it's a bit of an Ansible/Docker/Bash hack.
 
 ## Help
 
