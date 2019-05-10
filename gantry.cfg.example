@@ -1,4 +1,4 @@
-DIGITALOCEAN_TOKEN=<your Digital Ocean API token>
+DIGITALOCEAN_TOKEN=<your DigitalOcean API token>
 ROUTER_USER=<some username>
 ROUTER_PASS=<some password>
 DOCKER_REGISTRY_FQDN=<some a.b.c.domain>

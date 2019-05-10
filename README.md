@@ -14,7 +14,7 @@ Warning: This is very definitely an early work-in-progress, it has bugs, it's in
 
 ## Quick Start
 
-Assuming you are running on Ubuntu 18.10 and have Docker, a Digital Ocean account, and a private Docker registry containing one or more supported virtual router images with any necessary licenses, then:
+Assuming you are running on Ubuntu 18.10 and have Docker, a DigitalOcean account, and a private Docker registry containing one or more supported virtual router images with any necessary licenses, then:
 
 ```
 $ cp gantry.cfg.example gantry.cfg
@@ -100,7 +100,7 @@ Test scenarios:
 
 Gantry depends heavily on the [vrnetlab](https://github.com/plajjan/vrnetlab) project which is used to build the virtual router Docker images that are deployed and tested. Currently the vr-sros image build is slightly patched to enable outbound connectivity to the Routinator. With a better understanding of vrnetlab and routers the patch might turn out to be unnecessary, otherwise I would like to see if it is something that makes sense to somehow contribute pack to the vrnetlab project.
 
-Infrastructure is spun up using Docker Machine and Digital Ocean.
+Infrastructure is spun up using Docker Machine and DigitalOcean.
 
 Router images are provisioned using Docker Machine, Docker and Ansible.
 

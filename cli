@@ -118,7 +118,7 @@ create-machine() {
     if docker-machine ip ${MACHINE_NAME} &>/dev/null; then
         my_log "Docker Machine ${MACHINE_NAME} found."
     else
-        my_log "Creating new Digital Ocean Droplet ${MACHINE_NAME} with Docker Machine (region: ${REGION}, image: ${DIGITAL_OCEAN_BASE_OS_SLUG}, size: ${MACHINE_SIZE}).."
+        my_log "Creating new DigitalOcean Droplet ${MACHINE_NAME} with Docker Machine (region: ${REGION}, image: ${DIGITAL_OCEAN_BASE_OS_SLUG}, size: ${MACHINE_SIZE}).."
         docker-machine create \
         --driver digitalocean \
         --digitalocean-access-token ${DIGITALOCEAN_TOKEN} \
@@ -626,8 +626,8 @@ case "$MODE" in
             deploy)
                 cd ${BASEDIR}
 
-                my_log "You are about to deploy a private Docker registry on a Digital Ocean droplet."
-                my_log "Deployment requires a Digital Ocean account and an existing DNS domain managed by Digital Ocean".
+                my_log "You are about to deploy a private Docker registry on a DigitalOcean droplet."
+                my_log "Deployment requires a DigitalOcean account and an existing DNS domain managed by DigitalOcean".
                 my_log "You are strongly advised to read the documentation about the Terraform module that will be"
                 my_log "used to deploy the registry:"
                 my_log
@@ -642,7 +642,7 @@ case "$MODE" in
                 my_log "    registry pass: ${DOCKER_REGISTRY_PASS}"
                 my_log
                 PARENT_DOMAIN=$(echo ${DOCKER_REGISTRY_FQDN} | cut -d '.' -f 2-)
-                my_log "Deployment will FAIL if parent domain ${PARENT_DOMAIN} is not already delegated to your Digital Ocean account."
+                my_log "Deployment will FAIL if parent domain ${PARENT_DOMAIN} is not already delegated to your DigitalOcean account."
                 check_proceed || abort "User chose to abort."
 
                 my_log
