@@ -4,7 +4,7 @@ dist: xenial
 services:
 - docker
 before_install:
-- openssl aes-256-cbc -K $encrypted_90df736c1e20_key -iv $encrypted_90df736c1e20_iv -in gantry.cfg.enc -out gantry.cfg -d
+- openssl aes-256-cbc -K $encrypted_90df736c1e20_key -iv $encrypted_90df736c1e20_iv -in travis/gantry.cfg.enc -out gantry.cfg -d
 - docker build -t nlnetlabs/gantry .
 script: ./travis/script.sh
 after_script:
