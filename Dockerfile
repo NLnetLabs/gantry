@@ -49,14 +49,9 @@ RUN apt-get install -y python3-pip && \
 WORKDIR /root/.ansible/plugins/inventory/
 ADD https://raw.githubusercontent.com/ximon18/ansible-docker-machine-inventory-plugin/master/docker_machine.py .
 
-# Install (then below patch) the vrnetlab master branch at a fixed point in time (so that the patch cleanly applies,
-# and because the vrnetlab project doesn't use release tags which we can clone instead to achieve the same thing.
+# Install a patched vrnetlab branch
 RUN apt-get install -y git
-RUN mkdir -p /opt/nlnetlabs/gantry/vrnetlab
-RUN curl -L https://github.com/plajjan/vrnetlab/archive/d187a83f0765e312fdbb316a4c208f413b881362.zip -o /tmp/temp.zip && \
-    unzip -d /opt/nlnetlabs/gantry /tmp/temp.zip && \
-    rm /tmp/temp.zip
-RUN cd /opt/nlnetlabs/gantry/vrnetlab-* && mv * ../vrnetlab/ && cd ../ && rm -R vrnetlab-*
+RUN git clone -b nlnetlabs/gantry https://github.com/ximon18/vrnetlab.git /opt/nlnetlabs/gantry/vrnetlab
 
 # Install a Docker private registry CLI tool
 # See: https://github.com/genuinetools/reg/releases/tag/v0.16.0
@@ -68,10 +63,6 @@ RUN REG_SHA256="0470b6707ac68fa89d0cd92c83df5932c9822df7176fcf02d131d75f74a36a19
 # Install our tools
 COPY . /opt/nlnetlabs/gantry
 RUN ln -s /usr/bin/python3 /usr/bin/python
-
-# Patch vrnetlab
-WORKDIR /opt/nlnetlabs/gantry/vrnetlab
-RUN patch -p1 < /opt/nlnetlabs/gantry/vrnetlab.patch
 
 # Patch Ansible 2.7.10 with fix #51055 (see: https://github.com/ansible/ansible/pull/51055)
 WORKDIR /usr/local/lib/python3.6/dist-packages/ansible
