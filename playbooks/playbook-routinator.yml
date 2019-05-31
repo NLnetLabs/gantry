@@ -1,7 +1,6 @@
 # VENDOR=NLnet Labs
 # DROPLET_SIZE=s-1vcpu-1gb
-- any_errors_fatal: yes
-  hosts: rpkicaches
+- hosts: rpkicaches
   tasks:
   - block:
     - name: "INSTALL PYTHON FOR ANSIBLE"
