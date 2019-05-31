@@ -42,6 +42,7 @@
       docker_container:
         name: routinator
         image: nlnetlabs/routinator:latest
+        command: server
         network_mode: host
         ports:
           - "{{ routinator_port }}:{{ routinator_port }}"
