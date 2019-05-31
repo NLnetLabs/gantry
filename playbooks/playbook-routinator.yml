@@ -25,6 +25,7 @@
           http-listen = ["0.0.0.0:9556"]
           refresh = 60
 
+  - block:
     - name: "RUN THE ROUTINATOR DOCKER CONTAINER TO CREATE THE TALS"
       register: result
       docker_container:
@@ -36,7 +37,6 @@
           - /etc/routinator/tals:/root/.rpki-cache/tals
           - /root/.routinator.conf:/root/.routinator.conf
 
-  - block:
     - name: "RUN THE ROUTINATOR DOCKER CONTAINER ON THE ROUTINATOR HOST DOCKER DAEMON"
       register: result
       docker_container:
