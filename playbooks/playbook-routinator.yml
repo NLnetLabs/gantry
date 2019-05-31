@@ -13,27 +13,27 @@
         path: /etc/routinator/tals
         state: directory
 
-    - name: "DOWNLOAD THE TAL FILE"
-      get_url:
-        url: https://www.arin.net/resources/manage/rpki/arin-rfc7730.tal
-        dest: /etc/routinator/tals/arin-rfc7730.tal
-
-    - name: "CHECK TAL FILE EXISTS"
-      stat:
-        path: /etc/routinator/tals/arin-rfc7730.tal
-      register: result
-      failed_when: result.stat.exists == False
-
     - name: "CREATE ROUTINATOR CONFIG FILE"
       copy:
         dest: /root/.routinator.conf
         content: |
-          repository-dir = "/tmp"
+          repository-dir = "/root/.rpki-cache/repository/"
           tal-dir = "/root/.rpki-cache/tals/"
           log-level = "info"
           log = "stderr"
-          listen-http = ["0.0.0.0:9556"]
+          rtr-listen = ["0.0.0.0:{{ routinator_port }}"]
+          http-listen = ["0.0.0.0:9556"]
           refresh = 60
+
+    - name: "RUN THE ROUTINATOR DOCKER CONTAINER TO CREATE THE TALS"
+      register: result
+      docker_container:
+        image: nlnetlabs/routinator:latest
+        command: init -f --accept-arin-rpa
+        auto_remove: yes
+        volumes:
+          - /etc/routinator/tals:/root/.rpki-cache/tals
+          - /root/.routinator.conf:/root/.routinator.conf
 
   - block:
     - name: "RUN THE ROUTINATOR DOCKER CONTAINER ON THE ROUTINATOR HOST DOCKER DAEMON"
