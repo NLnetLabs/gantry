@@ -28,6 +28,7 @@
     - name: "RUN THE ROUTINATOR DOCKER CONTAINER TO CREATE THE TALS"
       register: result
       docker_container:
+        name: routinator
         image: nlnetlabs/routinator:latest
         command: init -f --accept-arin-rpa
         auto_remove: yes
