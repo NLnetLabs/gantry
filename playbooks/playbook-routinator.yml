@@ -13,18 +13,6 @@
         path: /etc/routinator/tals
         state: directory
 
-    - name: "CREATE ROUTINATOR CONFIG FILE"
-      copy:
-        dest: /root/.routinator.conf
-        content: |
-          repository-dir = "/root/.rpki-cache/repository/"
-          tal-dir = "/root/.rpki-cache/tals/"
-          log-level = "info"
-          log = "stderr"
-          rtr-listen = ["0.0.0.0:{{ routinator_port }}"]
-          http-listen = ["0.0.0.0:9556"]
-          refresh = 60
-
   - block:
     - name: "RUN THE ROUTINATOR DOCKER CONTAINER TO CREATE THE TALS"
       register: result
@@ -35,21 +23,18 @@
         auto_remove: yes
         volumes:
           - /etc/routinator/tals:/root/.rpki-cache/tals
-          - /root/.routinator.conf:/root/.routinator.conf
 
     - name: "RUN THE ROUTINATOR DOCKER CONTAINER ON THE ROUTINATOR HOST DOCKER DAEMON"
       register: result
       docker_container:
         name: routinator
         image: nlnetlabs/routinator:latest
-        command: server
         network_mode: host
         ports:
           - "{{ routinator_port }}:{{ routinator_port }}"
           - 9556:9556
         volumes:
           - /etc/routinator/tals/arin-rfc7730.tal:/root/.rpki-cache/tals/arin.tal
-          - /root/.routinator.conf:/root/.routinator.conf
 
     - name: "CHECK THAT THE ROUTINATOR IS DEPLOYED"
       assert: { that: "result.ansible_facts.docker_container.State.Running" }
