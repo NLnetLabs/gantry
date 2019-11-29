@@ -10,7 +10,7 @@
 
   - block:
     - name: "CREATE THE TALS DOCKER VOLUME"
-      raw: docker volume create routinator_tals
+      shell: docker volume create routinator_tals
 
     - name: "RUN THE ROUTINATOR DOCKER CONTAINER TO CREATE THE TALS"
       register: result
