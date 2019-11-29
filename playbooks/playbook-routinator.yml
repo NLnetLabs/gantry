@@ -8,46 +8,29 @@
       register: result
       changed_when: result.stdout != ""
 
-    - name: "CREATE THE TALS DIRECTORY"
-      file:
-        path: /etc/routinator/tals
-        state: directory
-
-    - name: "DOWNLOAD THE TAL FILE"
-      get_url:
-        url: https://www.arin.net/resources/manage/rpki/arin-rfc7730.tal
-        dest: /etc/routinator/tals/arin-rfc7730.tal
-
-    - name: "CHECK TAL FILE EXISTS"
-      stat:
-        path: /etc/routinator/tals/arin-rfc7730.tal
-      register: result
-      failed_when: result.stat.exists == False
-
-    - name: "CREATE ROUTINATOR CONFIG FILE"
-      copy:
-        dest: /root/.routinator.conf
-        content: |
-          repository-dir = "/tmp"
-          tal-dir = "/root/.rpki-cache/tals/"
-          log-level = "info"
-          log = "stderr"
-          listen-http = ["0.0.0.0:9556"]
-          refresh = 60
-
   - block:
+    - name: "CREATE THE TALS DOCKER VOLUME"
+      shell: docker volume create routinator_tals
+
+    - name: "RUN THE ROUTINATOR DOCKER CONTAINER TO CREATE THE TALS"
+      register: result
+      docker_container:
+        name: routinator
+        image: nlnetlabs/routinator:latest
+        command: init -f --accept-arin-rpa
+        auto_remove: yes
+        volumes:
+          - routinator_tals:/home/routinator/.rpki-cache/tals
+
     - name: "RUN THE ROUTINATOR DOCKER CONTAINER ON THE ROUTINATOR HOST DOCKER DAEMON"
       register: result
       docker_container:
         name: routinator
         image: nlnetlabs/routinator:latest
         network_mode: host
-        ports:
-          - "{{ routinator_port }}:{{ routinator_port }}"
-          - 9556:9556
         volumes:
-          - /etc/routinator/tals/arin-rfc7730.tal:/root/.rpki-cache/tals/arin.tal
-          - /root/.routinator.conf:/root/.routinator.conf
+          - routinator_tals:/home/routinator/.rpki-cache/tals
+        command: server --rtr 0.0.0.0:{{ routinator_port }} --http 0.0.0.0:9556
 
     - name: "CHECK THAT THE ROUTINATOR IS DEPLOYED"
       assert: { that: "result.ansible_facts.docker_container.State.Running" }
