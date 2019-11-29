@@ -30,6 +30,7 @@
         network_mode: host
         volumes:
           - routinator_tals:/home/routinator/.rpki-cache/tals
+        command: server --rtr 0.0.0.0:{{ routinator_port }} --http 0.0.0.0:9556
 
     - name: "CHECK THAT THE ROUTINATOR IS DEPLOYED"
       assert: { that: "result.ansible_facts.docker_container.State.Running" }
