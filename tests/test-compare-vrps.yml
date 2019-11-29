@@ -8,14 +8,16 @@
     DOCKER_MACHINE_NAME: "{{ hostvars['routinator'].dm_DOCKER_MACHINE_NAME }}"
     DOCKER_TLS_VERIFY: "{{ hostvars['routinator'].dm_DOCKER_TLS_VERIFY }}"
   tasks:
-  - name: "FETCH ROUTINATOR LOG"
-    command: docker logs routinator
+  - name: "FETCH ROUTINATOR STATUS"
+    uri:
+      url: "http://{{ hostvars['routinator'].ansible_host }}:9556/status"
+      return_content: yes
     register: result
-    changed_when: false
+    failed_when: "'serial:' not in result.content"
 
-  - name: "FIND MOST RECENT SERIAL NUMBER IN ROUTINATOR LOG"
+  - name: "EXTRACT SERIAL NUMBER FROM ROUTINATOR STATUS"
     set_fact:
-      routinator_serial: "{{ result.stderr_lines | select('match', '^New serial is ([0-9]+)') | list | last | regex_search('([0-9]+)', '\\1') | first }}"
+      routinator_serial: "{{ result.content | regex_search('^serial: ([0-9]+)$', multiline=True) }}"
 
   - name: "SHOW FOUND ROUTINATOR SERIAL NUMBER"
     debug: var=routinator_serial
