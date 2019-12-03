@@ -2,7 +2,7 @@
 # See: https://docs.travis-ci.com/user/job-lifecycle#complex-build-commands
 set -evx
 if [ "${TRAVIS_PULL_REQUEST}" = "false" ]; then
-  COMPONENTS_TO_TEST="routinator vr-sros:16.0.R6 vr-vmx:18.2R1.9"
+  COMPONENTS_TO_TEST="routinator vr-sros:16.0.R6"
 
   ./gantry --version
 
