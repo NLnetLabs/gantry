@@ -74,6 +74,63 @@ Digest: sha256:16c8559eed1543a4cbc8e3324aae131cb0e6246df0668b41bb13dbd8a99c6c40
 Status: Downloaded newer image for nlnetlabs/gantry:latest
 ```
 
+## Preparing router images
+
+Gantry contains support for building and publishing router images to a private Docker registry. Assuming that you have in your possession the router image file and any required license file you can use Gantry to build and publish it.
+
+Below is an example of how to build and publish a Nokia SROS 16.0.R6 router image:
+
+```
+$ mkdir /tmp/gantry
+$ cp /path/to/your/19.0.R6/sros-vm.qcow2 /tmp/gantry/sros-19.0.R6.qcow2
+$ cp /path/to/your/19.0.R6/license.txt /tmp/gantry/sros-19.0.R6.qcow2.license
+$ ./gantry registry publish
+2019-12-09 11:05:21 +0000: Publishing builds a vrnetlab router image and publishes it to your private Docker registry.
+2019-12-09 11:05:21 +0000: The router images and licenses must be supplied by you.
+2019-12-09 11:05:21 +0000: Do you wish to proceed? [y/N] y
+2019-12-09 11:05:22 +0000:
+2019-12-09 11:05:22 +0000: Which of the following router image types do you want to publish?
+    csr
+    nxos
+    openwrt
+    routeros
+    sros
+    veos
+    vmx
+    vqfx
+    vrp
+    vsr1000
+    xrv
+    xrv9k
+2019-12-09 11:05:22 +0000: Router type, e.g. sros: sros
+2019-12-09 11:05:23 +0000:
+2019-12-09 11:05:23 +0000: Please copy or sym link your .qcow2 router image, and optionally a .qcow2.license file, into:
+2019-12-09 11:05:23 +0000: /tmp/gantry
+2019-12-09 11:05:23 +0000:
+2019-12-09 11:05:23 +0000: Please read CAREFULLY the instructions that will be printed next on your screen.
+2019-12-09 11:05:23 +0000: If you do not name the copied/linked files correctly the build will FAIL.
+2019-12-09 11:05:23 +0000: Do you wish to proceed? [y/N] y
+2019-12-09 11:05:24 +0000:
+vrnetlab / Nokia VSR SROS
+=========================
+This is the vrnetlab docker image for Nokia VSR / SROS.
+...
+... skip vrnetlab router specific README ...
+...
+2019-12-09 11:05:24 +0000: Do you wish to proceed? [y/N] y
+...
+... skip make and Docker build process output ...
+...
+2019-12-09 11:05:28 +0000:
+2019-12-09 11:05:29 +0000: The image build has finished. Does the following identify the image that was built?
+2019-12-09 11:05:29 +0000: vrnetlab/vr-sros:19.10.R1
+2019-12-09 11:05:29 +0000: Do you wish to proceed? [y/N] y
+...
+... skip Docker push output ...
+...
+2019-12-09 11:06:07 +0000: Done.
+```
+
 ## Status
 Deployment of components to test:
 - [ ] NLnet Labs Krill
