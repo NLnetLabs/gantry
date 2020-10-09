@@ -216,6 +216,20 @@ Where COMPONENT can be one of: (deploy and undeploy also accept special componen
 
 _Note: The list of COMPONENTs shown is the set for which specific playbooks exist in the `playbooks/` directory. You will need the appropriate virtual router image published in your Docker registry in order to actually deploy one of these routers._
 
+## Upgrading the Routinator version
+
+The Routinator image is pulled from the private Docker registry, NOT from the public registry.
+
+You can upgrade it like so:
+
+```
+$ docker pull nlnetlabs/routinator:latest
+$ docker tag nlnetlabs/routinator:latest docker-reg.do.nlnetlabs.nl/nlnetlabs/routinator:latest
+$ docker push <YOUR_REGISTRY_FQDN>/nlnetlabs/routinator:latest
+```
+
+The registry FQDN and login details (you might need to do `docker login` before you can push) can be found in your `gantry.cfg` file.
+
 ## Hacking
 
 If you know what you are doing and want to take full control you can dive into the Gantry wrapper container shell prompt:
