@@ -1,4 +1,4 @@
-ansible==2.7.12
+ansible==2.10.0
 docker
 jmespath
 ncclient
