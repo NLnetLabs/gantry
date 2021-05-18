@@ -1,3 +1,7 @@
+Warning: Gantry hasn't been tested or worked on for many months.
+
+----
+
 [![Travis CI status badge](https://travis-ci.com/NLnetLabs/gantry.svg?branch=master)](https://travis-ci.com/NLnetLabs/gantry)
 
 # Gantry
